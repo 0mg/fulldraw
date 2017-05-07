@@ -145,20 +145,6 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     return 0;
   }
   case WT_PACKET: {
-    // wintab
-    if (wtctx != NULL) {
-      // wintab packets handler
-      UINT FAR oldest;
-      UINT FAR newest;
-      PACKET pkt;
-      // get all queues' oldest to newest
-      wt.WTQueuePacketsEx(wtctx, &oldest, &newest);
-      // get newest queue
-      wt.WTPacket(wtctx, newest, &pkt);
-      wsprintf(ss, TEXT("%d, %d, %d, %d"), pkt.pkX, pkt.pkY, pkt.pkNormalPressure, pkt.pkCursor);
-      
-      tou(hwnd, hdc, ss);
-    }
     return 0;
   }
   case WM_TIMER: {
@@ -182,6 +168,19 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     x = LOWORD(lp);
     y = HIWORD(lp);
     if (wp & MK_LBUTTON) drawing = TRUE;
+    // wintab
+    if (wtctx != NULL) {
+      // wintab packets handler
+      UINT FAR oldest;
+      UINT FAR newest;
+      PACKET pkt;
+      // get all queues' oldest to newest
+      wt.WTQueuePacketsEx(wtctx, &oldest, &newest);
+      // get newest queue
+      wt.WTPacket(wtctx, newest, &pkt);
+      wsprintf(ss, TEXT("%d, %d, %d, %d"), pkt.pkX, pkt.pkY, pkt.pkNormalPressure, pkt.pkCursor);
+      tou(hwnd, hdc, ss);
+    }
     if (drawing) {
       pen = CreatePen(PS_SOLID, 2, RGB(0, 0, 0));
       SelectObject(hdc, bmp);
