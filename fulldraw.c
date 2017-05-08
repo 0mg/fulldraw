@@ -15,23 +15,12 @@ TCHAR ss[255];
 void mbox(LPTSTR str) {
   MessageBox(NULL, str, str, MB_OK);
 }
-void mboxn(LONG n) {
-  TCHAR str[99];
-  wsprintf(str, TEXT("%d"), n);
-  MessageBox(NULL, str, str, MB_OK);
-}
 void tou(HWND hwnd, HDC hdc, LPTSTR str) {
   RECT rect;
   rect.left = rect.top = 0;
   rect.right = 1000;
   rect.bottom = 30;
   FillRect(hdc, &rect, GetStockObject(WHITE_BRUSH));
-  TextOut(hdc, 0, 0, str, lstrlen(str));
-  InvalidateRect(hwnd, NULL, FALSE);
-}
-void toun(HWND hwnd, HDC hdc, int n) {
-  TCHAR str[255];
-  wsprintf(str, TEXT("%d            "), n);
   TextOut(hdc, 0, 0, str, lstrlen(str));
   InvalidateRect(hwnd, NULL, FALSE);
 }
