@@ -221,6 +221,10 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   }
   case WM_CLOSE: {
     if (1||MessageBox(hwnd, TEXT("exit?"), C_APPNAME, MB_OKCANCEL) == IDOK) {
+      DeleteObject(bmp);
+      DeleteDC(hdc);
+      wt.WTClose(wtctx);
+      FreeLibrary(wintab32dll);
       DestroyWindow(hwnd);
     }
     return 0;
