@@ -72,20 +72,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   // Wintab
   static WintabFunctions wt;
   static HINSTANCE wintab32dll;
-  static LOGCONTEXT lcMine;
   static HCTX wtctx;
-  // debug
-  static UINT nums[17];
-  static UINT idx;
-  static TCHAR str[255];
-  if (!(msg & (WM_PAINT))) {
-    nums[idx++ % 17] = msg;
-  }
-  {
-    wvsprintf(str, TEXT("%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u                  "), nums);
-    //TextOut(hdc, 0, 0, str, lstrlen(str));
-    //InvalidateRect(hwnd, NULL, FALSE);
-  }
   switch (msg) {
   case WM_CREATE: {
     // init vars
@@ -94,6 +81,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     wintab32dll = LoadWintab32(&wt);
     // init wintab
     if (wintab32dll != NULL) {
+      LOGCONTEXT lcMine;
       if (wt.WTInfoW(WTI_DEFSYSCTX, 0, &lcMine) != 0) {
         lcMine.lcMsgBase = WT_DEFBASE;
         lcMine.lcPktData = PACKETDATA;
@@ -147,7 +135,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     return 0;
   }
   case WM_MOUSEMOVE: {
-    HPEN pen;
+    BOOL eraser = FALSE;
     UINT pensize = 2;
     UINT pressure;
     UINT presmax = 400;
@@ -163,24 +151,24 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       UINT FAR oldest;
       UINT FAR newest;
       PACKET pkt;
-      BOOL success;
       // get all queues' oldest to newest
-      success = wt.WTQueuePacketsEx(wtctx, &oldest, &newest);
-      // get newest queue
-      if (success) {
+      if (wt.WTQueuePacketsEx(wtctx, &oldest, &newest)) {
         wsprintf(ss, TEXT("%d"), newest);
         tou(hwnd, hdc, ss);
-        success = wt.WTPacket(wtctx, newest, &pkt);
-        if (success) {
+        // get newest queue
+        if (wt.WTPacket(wtctx, newest, &pkt)) {
           wsprintf(ss, TEXT("%d, %d, %d, %d"), pkt.pkX, pkt.pkY, pkt.pkNormalPressure, pkt.pkCursor);
           tou(hwnd, hdc, ss);
           pressure = pkt.pkNormalPressure;
           pensize = pressure / 30;
+          if (pkt.pkCursor == 2) eraser = TRUE;
         }
       }
     }
     if (drawing) {
-      pen = CreatePen(PS_SOLID, pensize, RGB(0, 0, 0));
+      HPEN pen = eraser ?
+        CreatePen(PS_SOLID, 10, RGB(255, 255, 255)) :
+        CreatePen(PS_SOLID, pensize, RGB(0, 0, 0));
       SelectObject(hdc, pen);
       MoveToEx(hdc, oldx, oldy, NULL);
       LineTo(hdc, x, y);
@@ -256,7 +244,7 @@ int WINAPI WinMain(HINSTANCE hi, HINSTANCE hp, LPSTR cl, int cs){
   hwnd = CreateWindowEx(
     0*WS_EX_TOPMOST,
     C_WINDOW_CLASS, C_APPNAME,
-    WS_OVERLAPPEDWINDOW | WS_VISIBLE | WS_SYSMENU,// | WS_POPUP,
+    WS_VISIBLE | WS_SYSMENU | WS_POPUP | WS_OVERLAPPEDWINDOW,
     0, 0,
     C_SCWIDTH/2,
     C_SCHEIGHT/2,
