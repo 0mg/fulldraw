@@ -10,14 +10,14 @@
 #define C_SCWIDTH GetSystemMetrics(SM_CXSCREEN)
 #define C_SCHEIGHT GetSystemMetrics(SM_CYSCREEN)
 
+void __start__() {
+  // program will start from here if `gcc -nostartfiles`
+  ExitProcess(WinMain(GetModuleHandle(NULL), 0, "", 0));
+}
+
 LONG nn;
 TCHAR ss[255];
 void mbox(LPTSTR str) {
-  MessageBox(NULL, str, str, MB_OK);
-}
-void mboxn(LONG n) {
-  TCHAR str[99];
-  wsprintf(str, TEXT("%d"), n);
   MessageBox(NULL, str, str, MB_OK);
 }
 void tou(HWND hwnd, HDC hdc, LPTSTR str) {
@@ -29,25 +29,14 @@ void tou(HWND hwnd, HDC hdc, LPTSTR str) {
   TextOut(hdc, 0, 0, str, lstrlen(str));
   InvalidateRect(hwnd, NULL, FALSE);
 }
-void toun(HWND hwnd, HDC hdc, int n) {
-  TCHAR str[255];
-  wsprintf(str, TEXT("%d            "), n);
-  TextOut(hdc, 0, 0, str, lstrlen(str));
-  InvalidateRect(hwnd, NULL, FALSE);
-}
 
-void __start__() {
-  // program will start from here if `gcc -nostartfiles`
-  ExitProcess(WinMain(GetModuleHandle(NULL), 0, "", 0));
-}
-
-typedef UINT (*typeWTInfoW)(UINT, UINT, LPVOID);
-typedef HCTX (*typeWTOpenW)(HWND, LPLOGCONTEXTW, BOOL);
-typedef BOOL (*typeWTClose)(HCTX);
-typedef BOOL (*typeWTPacket)(HCTX, UINT, LPVOID);
-typedef BOOL (*typeWTQueuePacketsEx)(HCTX, UINT FAR *, UINT FAR *);
-typedef int (*typeWTDataGet)(HCTX, UINT, UINT, int, LPVOID, LPINT);
-typedef	int (*typeWTQueueSizeGet)(HCTX);
+typedef UINT (API *typeWTInfoW)(UINT, UINT, LPVOID);
+typedef HCTX (API *typeWTOpenW)(HWND, LPLOGCONTEXTW, BOOL);
+typedef BOOL (API *typeWTClose)(HCTX);
+typedef BOOL (API *typeWTPacket)(HCTX, UINT, LPVOID);
+typedef BOOL (API *typeWTQueuePacketsEx)(HCTX, UINT FAR *, UINT FAR *);
+typedef int (API *typeWTDataGet)(HCTX, UINT, UINT, int, LPVOID, LPINT);
+typedef	int (API *typeWTQueueSizeGet)(HCTX);
 
 typedef struct {
   typeWTInfoW WTInfoW;
@@ -144,9 +133,6 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     ReleaseCapture();
     return 0;
   }
-  case WT_PACKET: {
-    return 0;
-  }
   case WM_TIMER: {
     return 0;
   }
@@ -161,8 +147,11 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     return 0;
   }
   case WM_MOUSEMOVE: {
-    // init
     HPEN pen;
+    UINT pensize = 2;
+    UINT pressure;
+    UINT presmax = 400;
+    // init
     oldx = x;
     oldy = y;
     x = LOWORD(lp);
@@ -174,16 +163,24 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       UINT FAR oldest;
       UINT FAR newest;
       PACKET pkt;
+      BOOL success;
       // get all queues' oldest to newest
-      wt.WTQueuePacketsEx(wtctx, &oldest, &newest);
+      success = wt.WTQueuePacketsEx(wtctx, &oldest, &newest);
       // get newest queue
-      wt.WTPacket(wtctx, newest, &pkt);
-      wsprintf(ss, TEXT("%d, %d, %d, %d"), pkt.pkX, pkt.pkY, pkt.pkNormalPressure, pkt.pkCursor);
-      tou(hwnd, hdc, ss);
+      if (success) {
+        wsprintf(ss, TEXT("%d"), newest);
+        tou(hwnd, hdc, ss);
+        success = wt.WTPacket(wtctx, newest, &pkt);
+        if (success) {
+          wsprintf(ss, TEXT("%d, %d, %d, %d"), pkt.pkX, pkt.pkY, pkt.pkNormalPressure, pkt.pkCursor);
+          tou(hwnd, hdc, ss);
+          pressure = pkt.pkNormalPressure;
+          pensize = pressure / 30;
+        }
+      }
     }
     if (drawing) {
-      pen = CreatePen(PS_SOLID, 2, RGB(0, 0, 0));
-      SelectObject(hdc, bmp);
+      pen = CreatePen(PS_SOLID, pensize, RGB(0, 0, 0));
       SelectObject(hdc, pen);
       MoveToEx(hdc, oldx, oldy, NULL);
       LineTo(hdc, x, y);
@@ -193,7 +190,6 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     // mouse capture
     if (wp & MK_LBUTTON) SetCapture(hwnd);
     else ReleaseCapture();
-    DeleteObject(pen);
     return 0;
   }
   case WM_LBUTTONUP: {
