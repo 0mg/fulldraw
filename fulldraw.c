@@ -105,8 +105,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     wintab32dll = LoadWintab32(&wt);
     // init wintab
     if (wintab32dll != NULL) {
-      if (wt.WTInfoW(WTI_DEFCONTEXT, 0, &lcMine) != 0) {
-        lcMine.lcOptions |= CXO_MESSAGES;
+      if (wt.WTInfoW(WTI_DEFSYSCTX, 0, &lcMine) != 0) {
         lcMine.lcMsgBase = WT_DEFBASE;
         lcMine.lcPktData = PACKETDATA;
         lcMine.lcPktMode = PACKETMODE;
@@ -223,6 +222,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     if (1||MessageBox(hwnd, TEXT("exit?"), C_APPNAME, MB_OKCANCEL) == IDOK) {
       DeleteObject(bmp);
       DeleteDC(hdc);
+      wt.WTClose(wtctx);
       FreeLibrary(wintab32dll);
       DestroyWindow(hwnd);
     }
