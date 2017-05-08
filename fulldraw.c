@@ -120,6 +120,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         //wt.WTClose(wtctx);
       } else {
         wtctx = NULL;
+        mbox(L"Error when open WTInfo");
       }
     }
     // timer
@@ -220,6 +221,9 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   }
   case WM_CLOSE: {
     if (1||MessageBox(hwnd, TEXT("exit?"), C_APPNAME, MB_OKCANCEL) == IDOK) {
+      DeleteObject(bmp);
+      DeleteDC(hdc);
+      FreeLibrary(wintab32dll);
       DestroyWindow(hwnd);
     }
     return 0;
