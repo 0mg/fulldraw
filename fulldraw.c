@@ -166,13 +166,31 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       }
     }
     if (drawing) {
-      HPEN pen = eraser ?
+      HBITMAP pattern;
+      LOGBRUSH lb;
+      HPEN expen; // dummy pen
+      HBRUSH brush;
+      HPEN pen;
+      pattern = (HBITMAP)LoadImage(NULL, TEXT("s.bmp"), IMAGE_BITMAP, 0, 0, 0);
+      lb.lbStyle = BS_DIBPATTERNPT;
+      lb.lbColor = RGB(0, 0, 128);
+      lb.lbHatch = (ULONG_PTR)pattern;
+      expen = ExtCreatePen(PS_GEOMETRIC, 30, &lb, 0, NULL);
+      pen = eraser ?
         CreatePen(PS_SOLID, 10, RGB(255, 255, 255)) :
         CreatePen(PS_SOLID, pensize, RGB(0, 0, 0));
+      brush = CreateSolidBrush(RGB(0, 0, 255));
+      SelectObject(hdc, brush);
+      SelectObject(hdc, expen);
       SelectObject(hdc, pen);
       MoveToEx(hdc, oldx, oldy, NULL);
       LineTo(hdc, x, y);
       DeleteObject(pen);
+      DeleteObject(expen);
+      DeleteObject(brush);
+      DeleteObject(pattern);
+      wsprintf(ss, TEXT("%d"), GetGuiResources(GetCurrentProcess(), GR_GDIOBJECTS));
+      tou(hwnd, hdc, ss);
       InvalidateRect(hwnd, NULL, FALSE);
     }
     // mouse capture
