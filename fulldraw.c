@@ -23,8 +23,8 @@ void mbox(LPTSTR str) {
 void tou(HWND hwnd, HDC hdc, LPTSTR str) {
   RECT rect;
   rect.left = rect.top = 0;
-  rect.right = 1000;
-  rect.bottom = 30;
+  rect.right = C_SCWIDTH;
+  rect.bottom = 20;
   FillRect(hdc, &rect, GetStockObject(WHITE_BRUSH));
   TextOut(hdc, 0, 0, str, lstrlen(str));
   InvalidateRect(hwnd, NULL, FALSE);
@@ -68,7 +68,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   static BOOL drawing;
   static INT16 x, y, oldx, oldy;
   static HDC hdc;
-  static HBITMAP bmp;
+  static HDC adc;
   // Wintab
   static WintabFunctions wt;
   static HINSTANCE wintab32dll;
@@ -103,8 +103,10 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     //SetTimer(hwnd, 0, 10, NULL);
     // ready BMP and paint Background
     RECT rect;
+    HBITMAP bmp;
     HDC odc = GetDC(hwnd);
     HBRUSH brush = CreateSolidBrush(RGB(255, 255, 255));
+    // hdc
     hdc = CreateCompatibleDC(odc);
     bmp = CreateCompatibleBitmap(odc, C_SCWIDTH, C_SCHEIGHT);
     rect.left = 0;
@@ -113,8 +115,42 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     rect.bottom = C_SCHEIGHT;
     SelectObject(hdc, bmp);
     FillRect(hdc, &rect, brush);
+    // adc
+    adc = CreateCompatibleDC(hdc);
+    bmp = CreateCompatibleBitmap(hdc, C_SCWIDTH, C_SCHEIGHT);
+    SelectObject(adc, bmp);
+    FillRect(adc, &rect, brush);
+    // finish
     DeleteObject(brush);
+    DeleteObject(bmp);
     ReleaseDC(hwnd, odc);
+    // test alpha blend
+    {
+      HBITMAP bmap, bmap2;
+      HDC bdc;
+      BLENDFUNCTION blendfn;
+      bdc = CreateCompatibleDC(hdc);
+      // blend bmp
+      bmap = (HBITMAP)LoadImage(NULL, TEXT("1.bmp"), IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE);
+      SelectObject(bdc, bmap);
+      blendfn.BlendOp = AC_SRC_OVER;
+      blendfn.BlendFlags = 0;
+      blendfn.SourceConstantAlpha = 128;
+      blendfn.AlphaFormat = 0;
+      AlphaBlend(hdc, 0, 0, 100, 100, bdc, 0, 0, 100, 100, blendfn);
+      // blend bmp
+      bmap2 = (HBITMAP)LoadImage(NULL, TEXT("2.bmp"), IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE);
+      SelectObject(bdc, bmap2);
+      blendfn.BlendOp = AC_SRC_OVER;
+      blendfn.BlendFlags = 0;
+      blendfn.SourceConstantAlpha = 128;
+      blendfn.AlphaFormat = 0;
+      AlphaBlend(hdc, 50, 50, 100, 100, bdc, 0, 0, 100, 100, blendfn);
+      // finish
+      DeleteObject(bmap);
+      DeleteObject(bmap2);
+      DeleteDC(bdc);
+    }
     return 0;
   }
   case WM_MOUSELEAVE: {
@@ -136,7 +172,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   }
   case WM_MOUSEMOVE: {
     BOOL eraser = FALSE;
-    UINT pensize = 2;
+    UINT pensize = 10;
     UINT pressure;
     UINT presmax = 400;
     // init
@@ -166,30 +202,30 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       }
     }
     if (drawing) {
-      HBITMAP pattern;
       LOGBRUSH lb;
       HPEN expen; // dummy pen
-      HBRUSH brush;
       HPEN pen;
-      pattern = (HBITMAP)LoadImage(NULL, TEXT("s.bmp"), IMAGE_BITMAP, 0, 0, 0);
-      lb.lbStyle = BS_DIBPATTERNPT;
-      lb.lbColor = RGB(0, 0, 128);
-      lb.lbHatch = (ULONG_PTR)pattern;
-      expen = ExtCreatePen(PS_GEOMETRIC, 30, &lb, 0, NULL);
+      // op
+      SetBkMode(adc, TRANSPARENT);
+      lb.lbStyle = BS_SOLID;
+      lb.lbColor = RGB(0xC0, 0xC0, 0xC0);
+      lb.lbHatch = HS_DIAGCROSS;
+      expen = ExtCreatePen(PS_GEOMETRIC, pensize + 1, &lb, 0, NULL);
       pen = eraser ?
         CreatePen(PS_SOLID, 10, RGB(255, 255, 255)) :
         CreatePen(PS_SOLID, pensize, RGB(0, 0, 0));
-      brush = CreateSolidBrush(RGB(0, 0, 255));
-      SelectObject(hdc, brush);
-      SelectObject(hdc, expen);
+      SelectObject(adc, expen);
+      MoveToEx(adc, oldx, oldy, NULL);
+      LineTo(adc, x, y);
+      BitBlt(hdc, 0, 0, C_SCWIDTH, C_SCHEIGHT, adc, 0, 0, SRCAND);
       SelectObject(hdc, pen);
       MoveToEx(hdc, oldx, oldy, NULL);
       LineTo(hdc, x, y);
+      // finish
       DeleteObject(pen);
       DeleteObject(expen);
-      DeleteObject(brush);
-      DeleteObject(pattern);
-      wsprintf(ss, TEXT("%d"), GetGuiResources(GetCurrentProcess(), GR_GDIOBJECTS));
+      wsprintf(ss, TEXT("%d"),
+        GetGuiResources(GetCurrentProcess(), GR_GDIOBJECTS));
       tou(hwnd, hdc, ss);
       InvalidateRect(hwnd, NULL, FALSE);
     }
@@ -222,7 +258,6 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   }
   case WM_CLOSE: {
     if (1||MessageBox(hwnd, TEXT("exit?"), C_APPNAME, MB_OKCANCEL) == IDOK) {
-      DeleteObject(bmp);
       DeleteDC(hdc);
       wt.WTClose(wtctx);
       FreeLibrary(wintab32dll);
