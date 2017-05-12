@@ -1,4 +1,4 @@
-//#define dev 1
+#define dev 1
 #include <windows.h>
 #include <msgpack.h>
 #include <wintab.h>
