@@ -254,7 +254,11 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     return 0;
   }
   case WM_CLOSE: {
-    if (1||MessageBox(hwnd, TEXT("exit?"), C_APPNAME, MB_OKCANCEL) == IDOK) {
+    #ifdef dev
+    if (TRUE) {
+    #else
+    if (MessageBox(hwnd, TEXT("exit?"), C_APPNAME, MB_OKCANCEL) == IDOK) {
+    #endif
       DeleteDC(hdc);
       GdiplusShutdown(gdiToken);
       wt.WTClose(wtctx);
