@@ -4,6 +4,8 @@
 #define PACKETDATA PK_X | PK_Y | PK_BUTTONS | PK_NORMAL_PRESSURE | PK_CURSOR
 #define PACKETMODE PK_BUTTONS
 #include <pktdef.h>
+#include <gdiplus.h>
+using namespace Gdiplus;
 
 #define C_APPNAME TEXT("fulldraw")
 #define C_WINDOW_CLASS TEXT("fulldraw_window_class")
@@ -23,9 +25,9 @@ void mbox(LPTSTR str) {
 void tou(HWND hwnd, HDC hdc, LPTSTR str) {return;
   RECT rect;
   rect.left = rect.top = 0;
-  rect.right = 1000;
-  rect.bottom = 30;
-  FillRect(hdc, &rect, GetStockObject(WHITE_BRUSH));
+  rect.right = C_SCWIDTH;
+  rect.bottom = 20;
+  FillRect(hdc, &rect, (HBRUSH)GetStockObject(WHITE_BRUSH));
   TextOut(hdc, 0, 0, str, lstrlen(str));
   InvalidateRect(hwnd, NULL, FALSE);
 }
@@ -68,7 +70,9 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   static BOOL drawing;
   static INT16 x, y, oldx, oldy;
   static HDC hdc;
-  static HBITMAP bmp;
+  static HDC adc;
+  // GDI+
+  static ULONG_PTR gdiToken;
   // Wintab
   static WintabFunctions wt;
   static HINSTANCE wintab32dll;
@@ -81,7 +85,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     wintab32dll = LoadWintab32(&wt);
     // init wintab
     if (wintab32dll != NULL) {
-      LOGCONTEXT lcMine;
+      LOGCONTEXTW lcMine;
       if (wt.WTInfoW(WTI_DEFSYSCTX, 0, &lcMine) != 0) {
         lcMine.lcMsgBase = WT_DEFBASE;
         lcMine.lcPktData = PACKETDATA;
@@ -96,15 +100,20 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         //wt.WTClose(wtctx);
       } else {
         wtctx = NULL;
-        mbox(L"Error when open WTInfo");
+        mbox(TEXT("Error when open WTInfo"));
       }
     }
     // timer
     //SetTimer(hwnd, 0, 10, NULL);
+    // GDI+
+    GdiplusStartupInput gdiSI;
+    GdiplusStartup(&gdiToken, &gdiSI, NULL);
     // ready BMP and paint Background
     RECT rect;
+    HBITMAP bmp;
     HDC odc = GetDC(hwnd);
     HBRUSH brush = CreateSolidBrush(RGB(255, 255, 255));
+    // hdc
     hdc = CreateCompatibleDC(odc);
     bmp = CreateCompatibleBitmap(odc, C_SCWIDTH, C_SCHEIGHT);
     rect.left = 0;
@@ -113,7 +122,14 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     rect.bottom = C_SCHEIGHT;
     SelectObject(hdc, bmp);
     FillRect(hdc, &rect, brush);
+    // adc
+    adc = CreateCompatibleDC(hdc);
+    bmp = CreateCompatibleBitmap(hdc, C_SCWIDTH, C_SCHEIGHT);
+    SelectObject(adc, bmp);
+    FillRect(adc, &rect, brush);
+    // finish
     DeleteObject(brush);
+    DeleteObject(bmp);
     ReleaseDC(hwnd, odc);
     return 0;
   }
@@ -166,13 +182,27 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       }
     }
     if (drawing) {
-      HPEN pen = eraser ?
-        CreatePen(PS_SOLID, 10, RGB(255, 255, 255)) :
-        CreatePen(PS_SOLID, pensize, RGB(0, 0, 0));
-      SelectObject(hdc, pen);
-      MoveToEx(hdc, oldx, oldy, NULL);
-      LineTo(hdc, x, y);
-      DeleteObject(pen);
+      {
+        Pen pen2(Color(255, 0, 0, 0), pensize);
+        if (eraser) {
+          pen2.SetColor(Color(255, 255, 255, 255));
+          pen2.SetWidth(10);
+        }
+        pen2.SetStartCap(LineCapRound);
+        pen2.SetEndCap(LineCapRound);
+        //pen2.SetLineJoin(LineJoinRound);
+        Graphics gpctx(hdc);
+        gpctx.SetSmoothingMode(SmoothingModeAntiAlias);
+        gpctx.DrawLine(&pen2, oldx, oldy, x, y);
+        //GraphicsPath pathes;
+        //pathes.AddLine(oldx, oldy, x, y);
+        //gpctx.DrawPath(&pen2, &pathes);
+      }
+      //BitBlt(hdc, 0, 0, C_SCWIDTH, C_SCHEIGHT, adc, 0, 0, SRCAND);
+      // finish
+      wsprintf(ss, TEXT("%d"),
+        GetGuiResources(GetCurrentProcess(), GR_GDIOBJECTS));
+      tou(hwnd, hdc, ss);
       InvalidateRect(hwnd, NULL, FALSE);
     }
     // mouse capture
@@ -181,6 +211,13 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     return 0;
   }
   case WM_LBUTTONUP: {
+    /*HBRUSH brush;
+    brush = CreateSolidBrush(RGB(255, 255, 255));
+    RECT rect;
+    rect.left = 0, rect.top = 0;
+    rect.right = C_SCWIDTH, rect.bottom = C_SCHEIGHT;
+    FillRect(adc, &rect, brush);
+    DeleteObject(brush);*/
     drawing = FALSE;
     ReleaseCapture();
     return 1;
@@ -204,8 +241,8 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   }
   case WM_CLOSE: {
     if (1||MessageBox(hwnd, TEXT("exit?"), C_APPNAME, MB_OKCANCEL) == IDOK) {
-      DeleteObject(bmp);
       DeleteDC(hdc);
+      GdiplusShutdown(gdiToken);
       wt.WTClose(wtctx);
       FreeLibrary(wintab32dll);
       DestroyWindow(hwnd);
@@ -232,17 +269,17 @@ int WINAPI WinMain(HINSTANCE hi, HINSTANCE hp, LPSTR cl, int cs){
   wc.cbClsExtra = 0;
   wc.cbWndExtra = 0;
   wc.hInstance = hi;
-  wc.hIcon = LoadImage(NULL, IDI_APPLICATION, IMAGE_ICON, 0, 0, LR_SHARED);
-  wc.hCursor = LoadImage(NULL, IDC_ARROW, IMAGE_CURSOR, 0, 0, LR_SHARED);
-  wc.hbrBackground = GetStockObject(LTGRAY_BRUSH);
+  wc.hIcon = (HICON)LoadImage(NULL, IDI_APPLICATION, IMAGE_ICON, 0, 0, LR_SHARED);
+  wc.hCursor = (HCURSOR)LoadImage(NULL, IDC_ARROW, IMAGE_CURSOR, 0, 0, LR_SHARED);
+  wc.hbrBackground = (HBRUSH)GetStockObject(LTGRAY_BRUSH);
   wc.lpszMenuName = NULL;
   wc.lpszClassName = C_WINDOW_CLASS;
-  wc.hIconSm = LoadImage(NULL, IDI_APPLICATION, IMAGE_ICON, 0, 0, LR_SHARED);
+  wc.hIconSm = (HICON)LoadImage(NULL, IDI_APPLICATION, IMAGE_ICON, 0, 0, LR_SHARED);
   if (RegisterClassEx(&wc) == 0) return 1;
 
   // Main Window: Create, Show
   hwnd = CreateWindowEx(
-    WS_EX_TOPMOST,
+    0*WS_EX_TOPMOST,
     C_WINDOW_CLASS, C_APPNAME,
     WS_VISIBLE | WS_SYSMENU | WS_POPUP,// | WS_OVERLAPPEDWINDOW,
     0, 0,

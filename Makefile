@@ -2,7 +2,7 @@
 all = fulldraw.exe
 
 # Library names
-LIBS = kernel32 shell32 user32 gdi32 ole32
+LIBS = kernel32 shell32 user32 gdi32 ole32 gdiplus
 
 # GCC
 GCCFLAGS = $(AR:%=-o $@ -DUNICODE -mwindows -nostartfiles -s ${LIBS:%=-l%})
@@ -32,10 +32,10 @@ RM = $(GCRM) $(VSRM)
 .PHONY: all
 all: $(all) clean
 
-.SUFFIXES: .exe .o .rc .c
+.SUFFIXES: .exe .o .rc .cpp
 
 $(all):
-	$(CC) $*.c $(CFLAGS)
+	$(CC) $*.cpp $(CFLAGS)
 
 clean:
 	$(RM) *.obj
