@@ -1,3 +1,4 @@
+//#define dev 1
 #include <windows.h>
 #include <msgpack.h>
 #include <wintab.h>
@@ -20,9 +21,12 @@ void __start__() {
 LONG nn;
 TCHAR ss[255];
 void mbox(LPTSTR str) {
+  #ifdef dev
   MessageBox(NULL, str, str, MB_OK);
+  #endif
 }
 void tou(HWND hwnd, HDC hdc, LPTSTR str) {
+  #ifdef dev
   RECT rect;
   rect.left = rect.top = 0;
   rect.right = C_SCWIDTH;
@@ -30,6 +34,7 @@ void tou(HWND hwnd, HDC hdc, LPTSTR str) {
   FillRect(hdc, &rect, (HBRUSH)GetStockObject(WHITE_BRUSH));
   TextOut(hdc, 0, 0, str, lstrlen(str));
   InvalidateRect(hwnd, NULL, FALSE);
+  #endif
 }
 
 typedef UINT (API *typeWTInfoW)(UINT, UINT, LPVOID);
@@ -100,7 +105,6 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         //wt.WTClose(wtctx);
       } else {
         wtctx = NULL;
-        mbox(TEXT("Error when open WTInfo"));
       }
     }
     // timer
@@ -152,7 +156,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   }
   case WM_MOUSEMOVE: {
     BOOL eraser = FALSE;
-    UINT pensize = 9;
+    UINT pensize = 2;
     UINT pressure;
     UINT presmax = 400;
     // init
@@ -160,7 +164,6 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     oldy = y;
     x = LOWORD(lp);
     y = HIWORD(lp);
-    if (wp & MK_LBUTTON) drawing = TRUE;
     // wintab
     if (wtctx != NULL) {
       // wintab packets handler
@@ -205,9 +208,19 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       tou(hwnd, hdc, ss);
       InvalidateRect(hwnd, NULL, FALSE);
     }
-    // mouse capture
-    if (wp & MK_LBUTTON) SetCapture(hwnd);
-    else ReleaseCapture();
+    return 0;
+  }
+  case WM_ACTIVATE: {
+    if (LOWORD(wp) == WA_INACTIVE) {
+      drawing = FALSE;
+      SetWindowLongPtr(hwnd, GWL_EXSTYLE, WS_EX_LEFT);
+      SetWindowPos(hwnd, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+    } else {
+      SetWindowLongPtr(hwnd, GWL_EXSTYLE, WS_EX_TOPMOST);
+      SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+    }
+    wsprintf(ss, TEXT("%d,%d"), LOWORD(wp), GetTickCount());
+    tou(hwnd, hdc, ss);
     return 0;
   }
   case WM_LBUTTONUP: {
@@ -220,11 +233,12 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     DeleteObject(brush);*/
     drawing = FALSE;
     ReleaseCapture();
-    return 1;
+    return 0;
   }
   case WM_LBUTTONDOWN: {
     drawing = TRUE;
-    return 1;
+    SetCapture(hwnd);
+    return 0;
   }
   case WM_RBUTTONUP: {
     PostMessage(hwnd, WM_CLOSE, 0, 0);
@@ -240,7 +254,11 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     return 0;
   }
   case WM_CLOSE: {
-    if (1||MessageBox(hwnd, TEXT("exit?"), C_APPNAME, MB_OKCANCEL) == IDOK) {
+    #ifdef dev
+    if (TRUE) {
+    #else
+    if (MessageBox(hwnd, TEXT("exit?"), C_APPNAME, MB_OKCANCEL) == IDOK) {
+    #endif
       DeleteDC(hdc);
       GdiplusShutdown(gdiToken);
       wt.WTClose(wtctx);
@@ -279,12 +297,19 @@ int WINAPI WinMain(HINSTANCE hi, HINSTANCE hp, LPSTR cl, int cs){
 
   // Main Window: Create, Show
   hwnd = CreateWindowEx(
-    0*WS_EX_TOPMOST,
+    WS_EX_TOPMOST,
     C_WINDOW_CLASS, C_APPNAME,
+    #ifdef dev
     WS_VISIBLE | WS_SYSMENU | WS_POPUP | WS_OVERLAPPEDWINDOW,
     0, 80,
     C_SCWIDTH/2,
     C_SCHEIGHT/2,
+    #else
+    WS_VISIBLE | WS_SYSMENU | WS_POPUP,
+    0, 0,
+    C_SCWIDTH,
+    C_SCHEIGHT,
+    #endif
     NULL, NULL, hi, NULL
   );
   if (hwnd == NULL) return 1;
