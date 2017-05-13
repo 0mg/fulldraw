@@ -1,4 +1,3 @@
-#define dev 1
 #include <windows.h>
 #include <msgpack.h>
 #include <wintab.h>
@@ -164,6 +163,8 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     oldy = y;
     x = LOWORD(lp);
     y = HIWORD(lp);
+    wsprintf(ss, TEXT("%d"), GetGuiResources(GetCurrentProcess(), GR_GDIOBJECTS));
+    tou(hwnd, hdc, ss);
     // wintab
     if (wtctx != NULL) {
       // wintab packets handler
@@ -198,8 +199,6 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       }
       //BitBlt(hdc, 0, 0, C_SCWIDTH, C_SCHEIGHT, adc, 0, 0, SRCCOPY);
       // finish
-      wsprintf(ss, TEXT("%d"), GetGuiResources(GetCurrentProcess(), GR_GDIOBJECTS));
-      tou(hwnd, hdc, ss);
       InvalidateRect(hwnd, NULL, FALSE);
     }
     return 0;
@@ -301,9 +300,9 @@ int WINAPI WinMain(HINSTANCE hi, HINSTANCE hp, LPSTR cl, int cs){
     C_WINDOW_CLASS, C_APPNAME,
     #ifdef dev
     WS_VISIBLE | WS_SYSMENU | WS_POPUP | WS_OVERLAPPEDWINDOW,
-    0, 80,
-    C_SCWIDTH/2,
-    C_SCHEIGHT/2,
+    80, 80,
+    C_SCWIDTH/1.5,
+    C_SCHEIGHT/1.5,
     #else
     WS_VISIBLE | WS_SYSMENU | WS_POPUP,
     0, 0,
