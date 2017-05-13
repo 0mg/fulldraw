@@ -13,6 +13,7 @@ GCRM = $(AR:%=rm -f)
 # VS
 _LIBS = $(LIBS) %
 _VSLIBS = $(_LIBS: =.lib )
+#_VSFLAGS = /DUNICODE /link $(_VSLIBS:%=)
 _VSFLAGS = /DUNICODE /MD /link /ENTRY:__start__ $(_VSLIBS:%=)
 _VSRC = rc
 _VSRFLAGS = /fo $*.o
