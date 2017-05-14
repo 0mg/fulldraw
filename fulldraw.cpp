@@ -1,4 +1,3 @@
-//#define dev 1
 #include <windows.h>
 #include <msgpack.h>
 #include <wintab.h>
@@ -76,8 +75,6 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   static INT16 x, y, oldx, oldy;
   static HDC hdc;
   static HDC adc;
-  // GDI+
-  static ULONG_PTR gdiToken;
   // Wintab
   static WintabFunctions wt;
   static HINSTANCE wintab32dll;
@@ -109,9 +106,6 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     }
     // timer
     //SetTimer(hwnd, 0, 10, NULL);
-    // GDI+
-    GdiplusStartupInput gdiSI;
-    GdiplusStartup(&gdiToken, &gdiSI, NULL);
     // ready BMP and paint Background
     RECT rect;
     HBITMAP bmp;
@@ -156,14 +150,21 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   }
   case WM_MOUSEMOVE: {
     BOOL eraser = FALSE;
-    UINT pensize = 2;
-    UINT pressure;
-    UINT presmax = 400;
+    UINT pensize = 3;
+    UINT pressure = 1;
+    UINT penmin = 0;
+    UINT penmax = 10;
+    UINT presmax = 300;
+    #ifdef dev
+    pensize = 8;
+    #endif
     // init
     oldx = x;
     oldy = y;
     x = LOWORD(lp);
     y = HIWORD(lp);
+    wsprintf(ss, TEXT("%d"), GetGuiResources(GetCurrentProcess(), GR_GDIOBJECTS));
+    tou(hwnd, hdc, ss);
     // wintab
     if (wtctx != NULL) {
       // wintab packets handler
@@ -172,15 +173,13 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       PACKET pkt;
       // get all queues' oldest to newest
       if (wt.WTQueuePacketsEx(wtctx, &oldest, &newest)) {
-        wsprintf(ss, TEXT("%d"), newest);
-        tou(hwnd, hdc, ss);
         // get newest queue
         if (wt.WTPacket(wtctx, newest, &pkt)) {
-          wsprintf(ss, TEXT("%d, %d, %d, %d"), pkt.pkX, pkt.pkY, pkt.pkNormalPressure, pkt.pkCursor);
-          tou(hwnd, hdc, ss);
           pressure = pkt.pkNormalPressure;
-          pensize = pressure / 30;
+          pensize = pressure / (presmax / penmax);
           if (pkt.pkCursor == 2) eraser = TRUE;
+          wsprintf(ss, TEXT("%d, %d, %d, %d, %d, %d, %d"), pkt.pkX, pkt.pkY, pkt.pkNormalPressure, pkt.pkCursor, pensize, newest, GetGuiResources(GetCurrentProcess(), GR_GDIOBJECTS));
+          tou(hwnd, hdc, ss);
         }
       }
     }
@@ -197,15 +196,9 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         Graphics gpctx(hdc);
         gpctx.SetSmoothingMode(SmoothingModeAntiAlias);
         gpctx.DrawLine(&pen2, oldx, oldy, x, y);
-        //GraphicsPath pathes;
-        //pathes.AddLine(oldx, oldy, x, y);
-        //gpctx.DrawPath(&pen2, &pathes);
       }
-      //BitBlt(hdc, 0, 0, C_SCWIDTH, C_SCHEIGHT, adc, 0, 0, SRCAND);
+      //BitBlt(hdc, 0, 0, C_SCWIDTH, C_SCHEIGHT, adc, 0, 0, SRCCOPY);
       // finish
-      wsprintf(ss, TEXT("%d"),
-        GetGuiResources(GetCurrentProcess(), GR_GDIOBJECTS));
-      tou(hwnd, hdc, ss);
       InvalidateRect(hwnd, NULL, FALSE);
     }
     return 0;
@@ -224,13 +217,15 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     return 0;
   }
   case WM_LBUTTONUP: {
-    /*HBRUSH brush;
+    /*
+    HBRUSH brush;
     brush = CreateSolidBrush(RGB(255, 255, 255));
     RECT rect;
     rect.left = 0, rect.top = 0;
     rect.right = C_SCWIDTH, rect.bottom = C_SCHEIGHT;
     FillRect(adc, &rect, brush);
-    DeleteObject(brush);*/
+    DeleteObject(brush);
+    //*/
     drawing = FALSE;
     ReleaseCapture();
     return 0;
@@ -260,7 +255,6 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     if (MessageBox(hwnd, TEXT("exit?"), C_APPNAME, MB_OKCANCEL) == IDOK) {
     #endif
       DeleteDC(hdc);
-      GdiplusShutdown(gdiToken);
       wt.WTClose(wtctx);
       FreeLibrary(wintab32dll);
       DestroyWindow(hwnd);
@@ -279,6 +273,11 @@ int WINAPI WinMain(HINSTANCE hi, HINSTANCE hp, LPSTR cl, int cs){
   MSG msg;
   WNDCLASSEX wc;
   HWND hwnd;
+  ULONG_PTR gdiToken;
+  GdiplusStartupInput gdiSI;
+
+  // GDI+
+  GdiplusStartup(&gdiToken, &gdiSI, NULL);
 
   // Main Window: Settings
   wc.cbSize = sizeof(WNDCLASSEX);
@@ -287,12 +286,12 @@ int WINAPI WinMain(HINSTANCE hi, HINSTANCE hp, LPSTR cl, int cs){
   wc.cbClsExtra = 0;
   wc.cbWndExtra = 0;
   wc.hInstance = hi;
-  wc.hIcon = (HICON)LoadImage(NULL, IDI_APPLICATION, IMAGE_ICON, 0, 0, LR_SHARED);
+  wc.hIcon = (HICON)LoadImage(hi, TEXT("APPICON"), IMAGE_ICON, 0, 0, LR_DEFAULTCOLOR);
   wc.hCursor = (HCURSOR)LoadImage(NULL, IDC_ARROW, IMAGE_CURSOR, 0, 0, LR_SHARED);
   wc.hbrBackground = (HBRUSH)GetStockObject(LTGRAY_BRUSH);
   wc.lpszMenuName = NULL;
   wc.lpszClassName = C_WINDOW_CLASS;
-  wc.hIconSm = (HICON)LoadImage(NULL, IDI_APPLICATION, IMAGE_ICON, 0, 0, LR_SHARED);
+  wc.hIconSm = (HICON)LoadImage(hi, TEXT("APPICON"), IMAGE_ICON, 0, 0, LR_DEFAULTCOLOR);
   if (RegisterClassEx(&wc) == 0) return 1;
 
   // Main Window: Create, Show
@@ -301,9 +300,9 @@ int WINAPI WinMain(HINSTANCE hi, HINSTANCE hp, LPSTR cl, int cs){
     C_WINDOW_CLASS, C_APPNAME,
     #ifdef dev
     WS_VISIBLE | WS_SYSMENU | WS_POPUP | WS_OVERLAPPEDWINDOW,
-    0, 80,
-    C_SCWIDTH/2,
-    C_SCHEIGHT/2,
+    80, 80,
+    C_SCWIDTH/1.5,
+    C_SCHEIGHT/1.5,
     #else
     WS_VISIBLE | WS_SYSMENU | WS_POPUP,
     0, 0,
@@ -319,5 +318,7 @@ int WINAPI WinMain(HINSTANCE hi, HINSTANCE hp, LPSTR cl, int cs){
     TranslateMessage(&msg);
     DispatchMessage(&msg);
   }
+  // finish
+  GdiplusShutdown(gdiToken);
   return msg.wParam;
 }

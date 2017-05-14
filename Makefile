@@ -34,8 +34,11 @@ all: $(all) clean
 
 .SUFFIXES: .exe .o .rc .cpp
 
-$(all):
-	$(CC) $*.cpp $(CFLAGS)
+$(all): $(all:.exe=.o)
+	$(CC) $*.o $*.cpp $(CFLAGS)
+
+$(all:.exe=.o): $(all:.exe=.rc)
+	$(RC) $(RFLAGS) $*.rc
 
 clean:
 	$(RM) *.obj
