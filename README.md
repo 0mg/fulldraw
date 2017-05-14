@@ -1,6 +1,10 @@
 # fulldraw
 
-A drawing software in all white fullscreen.
+A drawing software.
+
+drawing to fullscreen canvas.
+
+No UI, all white.
 
 ## for
 
