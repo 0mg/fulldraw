@@ -36,59 +36,84 @@ void tou(HWND hwnd, HDC hdc, LPTSTR str) {
   #endif
 }
 
-typedef UINT (API *typeWTInfoW)(UINT, UINT, LPVOID);
-typedef HCTX (API *typeWTOpenW)(HWND, LPLOGCONTEXTW, BOOL);
-typedef BOOL (API *typeWTClose)(HCTX);
-typedef BOOL (API *typeWTPacket)(HCTX, UINT, LPVOID);
-typedef BOOL (API *typeWTQueuePacketsEx)(HCTX, UINT FAR *, UINT FAR *);
-typedef int (API *typeWTDataGet)(HCTX, UINT, UINT, int, LPVOID, LPINT);
-typedef	int (API *typeWTQueueSizeGet)(HCTX);
-
-typedef struct {
+class Wintab32 {
+public:
+  typedef UINT (API *typeWTInfoW)(UINT, UINT, LPVOID);
+  typedef HCTX (API *typeWTOpenW)(HWND, LPLOGCONTEXTW, BOOL);
+  typedef BOOL (API *typeWTClose)(HCTX);
+  typedef BOOL (API *typeWTPacket)(HCTX, UINT, LPVOID);
+  typedef BOOL (API *typeWTQueuePacketsEx)(HCTX, UINT FAR *, UINT FAR *);
   typeWTInfoW WTInfoW;
   typeWTOpenW WTOpenW;
   typeWTClose WTClose;
   typeWTPacket WTPacket;
   typeWTQueuePacketsEx WTQueuePacketsEx;
-  typeWTDataGet WTDataGet;
-  typeWTQueueSizeGet WTQueueSizeGet;
-} WintabFunctions;
-
-HINSTANCE LoadWintab32(WintabFunctions *wt) {
   HINSTANCE dll;
-  dll = LoadLibrary(TEXT("wintab32.dll"));
-  if (dll == NULL) {
-    return NULL;
+  HCTX ctx;
+  HINSTANCE init() {
+    HINSTANCE &dll = this->dll;
+    dll = LoadLibrary(TEXT("wintab32.dll"));
+    if (dll == NULL) {
+      return dll;
+    }
+    this->WTInfoW = (typeWTInfoW)GetProcAddress(dll, "WTInfoW");
+    this->WTOpenW = (typeWTOpenW)GetProcAddress(dll, "WTOpenW");
+    this->WTClose = (typeWTClose)GetProcAddress(dll, "WTClose");
+    this->WTPacket = (typeWTPacket)GetProcAddress(dll, "WTPacket");
+    this->WTQueuePacketsEx = (typeWTQueuePacketsEx)GetProcAddress(dll, "WTQueuePacketsEx");
+    return dll;
   }
-  wt->WTInfoW = (typeWTInfoW)GetProcAddress(dll, "WTInfoW");
-  wt->WTOpenW = (typeWTOpenW)GetProcAddress(dll, "WTOpenW");
-  wt->WTClose = (typeWTClose)GetProcAddress(dll, "WTClose");
-  wt->WTPacket = (typeWTPacket)GetProcAddress(dll, "WTPacket");
-  wt->WTQueuePacketsEx = (typeWTQueuePacketsEx)GetProcAddress(dll, "WTQueuePacketsEx");
-  wt->WTDataGet = (typeWTDataGet)GetProcAddress(dll, "WTDataGet");
-  wt->WTQueueSizeGet = (typeWTQueueSizeGet)GetProcAddress(dll, "WTQueueSizeGet");
-  return dll;
-}
+};
+
+class DCBuffer {
+public:
+  HDC dc;
+  HBITMAP bmp;
+  DCBuffer(){}
+  void init(HWND hwnd) {
+    HDC hdc = GetDC(hwnd);
+    HDC mdc = CreateCompatibleDC(hdc);
+    HBITMAP bmp = CreateCompatibleBitmap(hdc, C_SCWIDTH, C_SCHEIGHT);
+    RECT rect;
+    HBRUSH brush = CreateSolidBrush(RGB(255, 255, 255));
+    rect.left = 0;
+    rect.top = 0;
+    rect.right = C_SCWIDTH;
+    rect.bottom = C_SCHEIGHT;
+    SelectObject(mdc, bmp);
+    SelectObject(mdc, brush);
+    FillRect(mdc, &rect, brush);
+    DeleteObject(brush);
+    ReleaseDC(hwnd, hdc);
+    this->dc = mdc;
+    this->bmp = bmp;
+  }
+};
+
+class DrawParams {
+public:
+  BOOL drawing;
+  INT16 x, y, oldx, oldy;
+};
 
 LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
-  static BOOL drawing;
-  static INT16 x, y, oldx, oldy;
-  static HDC hdc;
-  static HDC adc;
+  static DrawParams *dwpa;
+  static DCBuffer *dcb1;
+  static DCBuffer *dcb2;
   // Wintab
-  static WintabFunctions wt;
-  static HINSTANCE wintab32dll;
-  static HCTX wtctx;
+  static Wintab32 *wt;
   switch (msg) {
   case WM_CREATE: {
     // init vars
-    drawing = FALSE;
+    dwpa = new DrawParams;
+    dcb1 = new DCBuffer;
+    dcb2 = new DCBuffer;
+    wt = new Wintab32;
+    dwpa->drawing = FALSE;
     // load Wintab32.dll
-    wintab32dll = LoadWintab32(&wt);
-    // init wintab
-    if (wintab32dll != NULL) {
+    if (wt->init() != NULL) {
       LOGCONTEXTW lcMine;
-      if (wt.WTInfoW(WTI_DEFSYSCTX, 0, &lcMine) != 0) {
+      if (wt->WTInfoW(WTI_DEFSYSCTX, 0, &lcMine) != 0) {
         lcMine.lcMsgBase = WT_DEFBASE;
         lcMine.lcPktData = PACKETDATA;
         lcMine.lcPktMode = PACKETMODE;
@@ -98,37 +123,18 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         lcMine.lcOutOrgY = 0;
         lcMine.lcOutExtX = GetSystemMetrics(SM_CXSCREEN);
         lcMine.lcOutExtY = -GetSystemMetrics(SM_CYSCREEN);
-        wtctx = wt.WTOpenW(hwnd, &lcMine, TRUE);
-        //wt.WTClose(wtctx);
+        wt->ctx = wt->WTOpenW(hwnd, &lcMine, TRUE);
       } else {
-        wtctx = NULL;
+        wt->ctx = NULL;
       }
     }
-    // timer
-    //SetTimer(hwnd, 0, 10, NULL);
-    // ready BMP and paint Background
-    RECT rect;
-    HBITMAP bmp;
-    HDC odc = GetDC(hwnd);
-    HBRUSH brush = CreateSolidBrush(RGB(255, 255, 255));
-    // hdc
-    hdc = CreateCompatibleDC(odc);
-    bmp = CreateCompatibleBitmap(odc, C_SCWIDTH, C_SCHEIGHT);
-    rect.left = 0;
-    rect.top = 0;
-    rect.right = C_SCWIDTH;
-    rect.bottom = C_SCHEIGHT;
-    SelectObject(hdc, bmp);
-    FillRect(hdc, &rect, brush);
-    // adc
-    adc = CreateCompatibleDC(hdc);
-    bmp = CreateCompatibleBitmap(hdc, C_SCWIDTH, C_SCHEIGHT);
-    SelectObject(adc, bmp);
-    FillRect(adc, &rect, brush);
-    // finish
-    DeleteObject(brush);
-    DeleteObject(bmp);
-    ReleaseDC(hwnd, odc);
+    #ifdef dev
+    wsprintf(ss, TEXT("fulldraw - %d, %d"), wt->dll, wt->ctx);
+    SetWindowText(hwnd, ss);
+    #endif
+    // ready bitmap buffer
+    dcb1->init(hwnd);
+    dcb2->init(hwnd);
     return 0;
   }
   case WM_MOUSELEAVE: {
@@ -144,7 +150,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   case WM_PAINT: {
     PAINTSTRUCT ps;
     HDC odc = BeginPaint(hwnd, &ps);
-    BitBlt(odc, 0, 0, C_SCWIDTH, C_SCHEIGHT, hdc, 0, 0, SRCCOPY);
+    BitBlt(odc, 0, 0, C_SCWIDTH, C_SCHEIGHT, dcb1->dc, 0, 0, SRCCOPY);
     EndPaint(hwnd, &ps);
     return 0;
   }
@@ -159,31 +165,31 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     pensize = 8;
     #endif
     // init
-    oldx = x;
-    oldy = y;
-    x = LOWORD(lp);
-    y = HIWORD(lp);
+    dwpa->oldx = dwpa->x;
+    dwpa->oldy = dwpa->y;
+    dwpa->x = LOWORD(lp);
+    dwpa->y = HIWORD(lp);
     wsprintf(ss, TEXT("%d"), GetGuiResources(GetCurrentProcess(), GR_GDIOBJECTS));
-    tou(hwnd, hdc, ss);
+    tou(hwnd, dcb1->dc, ss);
     // wintab
-    if (wtctx != NULL) {
+    if (wt->ctx != NULL) {
       // wintab packets handler
       UINT FAR oldest;
       UINT FAR newest;
       PACKET pkt;
       // get all queues' oldest to newest
-      if (wt.WTQueuePacketsEx(wtctx, &oldest, &newest)) {
+      if (wt->WTQueuePacketsEx(wt->ctx, &oldest, &newest)) {
         // get newest queue
-        if (wt.WTPacket(wtctx, newest, &pkt)) {
+        if (wt->WTPacket(wt->ctx, newest, &pkt)) {
           pressure = pkt.pkNormalPressure;
           pensize = pressure / (presmax / penmax);
           if (pkt.pkCursor == 2) eraser = TRUE;
           wsprintf(ss, TEXT("%d, %d, %d, %d, %d, %d, %d"), pkt.pkX, pkt.pkY, pkt.pkNormalPressure, pkt.pkCursor, pensize, newest, GetGuiResources(GetCurrentProcess(), GR_GDIOBJECTS));
-          tou(hwnd, hdc, ss);
+          tou(hwnd, dcb1->dc, ss);
         }
       }
     }
-    if (drawing) {
+    if (dwpa->drawing) {
       {
         Pen pen2(Color(255, 0, 0, 0), pensize);
         if (eraser) {
@@ -193,11 +199,11 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         pen2.SetStartCap(LineCapRound);
         pen2.SetEndCap(LineCapRound);
         //pen2.SetLineJoin(LineJoinRound);
-        Graphics gpctx(hdc);
+        Graphics gpctx(dcb1->dc);
         gpctx.SetSmoothingMode(SmoothingModeAntiAlias);
-        gpctx.DrawLine(&pen2, oldx, oldy, x, y);
+        gpctx.DrawLine(&pen2, dwpa->oldx, dwpa->oldy, dwpa->x, dwpa->y);
       }
-      //BitBlt(hdc, 0, 0, C_SCWIDTH, C_SCHEIGHT, adc, 0, 0, SRCCOPY);
+      //BitBlt(dcb1->dc, 0, 0, C_SCWIDTH, C_SCHEIGHT, adc, 0, 0, SRCCOPY);
       // finish
       InvalidateRect(hwnd, NULL, FALSE);
     }
@@ -205,7 +211,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   }
   case WM_ACTIVATE: {
     if (LOWORD(wp) == WA_INACTIVE) {
-      drawing = FALSE;
+      dwpa->drawing = FALSE;
       SetWindowLongPtr(hwnd, GWL_EXSTYLE, WS_EX_LEFT);
       SetWindowPos(hwnd, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
     } else {
@@ -213,7 +219,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
     }
     wsprintf(ss, TEXT("%d,%d"), LOWORD(wp), GetTickCount());
-    tou(hwnd, hdc, ss);
+    tou(hwnd, dcb1->dc, ss);
     return 0;
   }
   case WM_LBUTTONUP: {
@@ -226,12 +232,12 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     FillRect(adc, &rect, brush);
     DeleteObject(brush);
     //*/
-    drawing = FALSE;
+    dwpa->drawing = FALSE;
     ReleaseCapture();
     return 0;
   }
   case WM_LBUTTONDOWN: {
-    drawing = TRUE;
+    dwpa->drawing = TRUE;
     SetCapture(hwnd);
     return 0;
   }
@@ -254,9 +260,9 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     #else
     if (MessageBox(hwnd, TEXT("exit?"), C_APPNAME, MB_OKCANCEL) == IDOK) {
     #endif
-      DeleteDC(hdc);
-      wt.WTClose(wtctx);
-      FreeLibrary(wintab32dll);
+      DeleteDC(dcb1->dc);
+      wt->WTClose(wt->ctx);
+      FreeLibrary(wt->dll);
       DestroyWindow(hwnd);
     }
     return 0;
