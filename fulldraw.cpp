@@ -110,12 +110,8 @@ public:
     ReleaseDC(hwnd, hdc);
   }
   void cls() {
-    HBRUSH brush = CreateSolidBrush(RGB(255, 255, 255));
-    RECT rect;
-    rect.left = 0, rect.top = 0;
-    rect.right = C_SCWIDTH, rect.bottom = C_SCHEIGHT;
-    FillRect(dc, &rect, brush);
-    DeleteObject(brush);
+    Graphics gpctx(dc);
+    gpctx.Clear(Color(255, 255, 255, 255));
   }
   void end() {
     DeleteObject(bmp);
@@ -225,8 +221,10 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       SetWindowLongPtr(hwnd, GWL_EXSTYLE, WS_EX_LEFT);
       SetWindowPos(hwnd, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
     } else {
+      #ifndef dev
       SetWindowLongPtr(hwnd, GWL_EXSTYLE, WS_EX_TOPMOST);
       SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+      #endif
     }
     wsprintf(ss, TEXT("%d,%d"), LOWORD(wp), GetTickCount());
     tou(hwnd, dcb1->dc, ss);
@@ -303,14 +301,16 @@ int WINAPI WinMain(HINSTANCE hi, HINSTANCE hp, LPSTR cl, int cs){
 
   // Main Window: Create, Show
   hwnd = CreateWindowEx(
-    WS_EX_TOPMOST,
-    C_WINDOW_CLASS, C_APPNAME,
     #ifdef dev
+    WS_EX_LEFT,
+    C_WINDOW_CLASS, C_APPNAME,
     WS_VISIBLE | WS_SYSMENU | WS_POPUP | WS_OVERLAPPEDWINDOW,
     80, 80,
     C_SCWIDTH/1.5,
     C_SCHEIGHT/1.5,
     #else
+    WS_EX_TOPMOST,
+    C_WINDOW_CLASS, C_APPNAME,
     WS_VISIBLE | WS_SYSMENU | WS_POPUP,
     0, 0,
     C_SCWIDTH,
