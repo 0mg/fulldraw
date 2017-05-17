@@ -11,6 +11,8 @@ using namespace Gdiplus;
 #define C_WINDOW_CLASS TEXT("fulldraw_window_class")
 #define C_SCWIDTH GetSystemMetrics(SM_CXSCREEN)
 #define C_SCHEIGHT GetSystemMetrics(SM_CYSCREEN)
+#define C_FGCOLOR Color(255, 0, 0, 0)
+#define C_BGCOLOR Color(255, 255, 255, 255)
 
 void __start__() {
   // program will start from here if `gcc -nostartfiles`
@@ -111,7 +113,7 @@ public:
   }
   void cls() {
     Graphics gpctx(dc);
-    gpctx.Clear(Color(255, 255, 255, 255));
+    gpctx.Clear(C_BGCOLOR);
   }
   void end() {
     DeleteObject(bmp);
@@ -135,6 +137,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   static DCBuffer *dcb2;
   // Wintab
   static Wintab32 *wt;
+  static GraphicsPath *path;
   switch (msg) {
   case WM_CREATE: {
     // x, y
@@ -176,10 +179,14 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     UINT penmax = 10;
     UINT presmax = 300;
     // init
-    dwpa->oldx = dwpa->x;
-    dwpa->oldy = dwpa->y;
-    dwpa->x = LOWORD(lp);
-    dwpa->y = HIWORD(lp);
+    INT16 &oldx = dwpa->oldx;
+    INT16 &oldy = dwpa->oldy;
+    INT16 &x = dwpa->x;
+    INT16 &y = dwpa->y;
+    oldx = x;
+    oldy = y;
+    x = LOWORD(lp);
+    y = HIWORD(lp);
     // debug
     wsprintf(ss, TEXT("%d"),
       GetGuiResources(GetCurrentProcess(), GR_GDIOBJECTS));
@@ -200,17 +207,27 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     // draw line
     if (dwpa->drawing) {
       pensize = pressure / (presmax / penmax);
-      Pen pen2(Color(255, 0, 0, 0), pensize);
+      Pen pen2(C_FGCOLOR, pensize);
       pen2.SetStartCap(LineCapRound);
       pen2.SetEndCap(LineCapRound);
-      pen2.SetLineJoin(LineJoinRound);
       if (eraser) {
-        pen2.SetColor(Color(255, 255, 255, 255));
+        pen2.SetColor(C_BGCOLOR);
         pen2.SetWidth(10);
       }
       Graphics gpctx(dcb1->dc);
       gpctx.SetSmoothingMode(SmoothingModeAntiAlias);
-      gpctx.DrawLine(&pen2, dwpa->oldx, dwpa->oldy, dwpa->x, dwpa->y);
+      //gpctx.DrawLine(&pen2, oldx, oldy, x, y);
+      // experimental
+      Graphics gpct2(dcb2->dc);
+      dcb2->cls();
+      Color col(Color(122, 0 ,100, 0));
+      Pen pen3(col, pensize);
+      pen3.SetStartCap(LineCapRound);
+      pen3.SetEndCap(LineCapRound);
+      pen3.SetLineJoin(LineJoinRound);
+      path->AddLine(Point(oldx, oldy), Point(x, y));
+      gpct2.DrawPath(&pen3, path);
+      BitBlt(dcb1->dc, 10, 0, C_SCWIDTH, C_SCHEIGHT, dcb2->dc, 0, 0, SRCAND);
       InvalidateRect(hwnd, NULL, FALSE);
     }
     return 0;
@@ -231,11 +248,13 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     return 0;
   }
   case WM_LBUTTONUP: {
+    delete path;
     dwpa->drawing = FALSE;
     ReleaseCapture();
     return 0;
   }
   case WM_LBUTTONDOWN: {
+    path = new GraphicsPath();
     dwpa->drawing = TRUE;
     SetCapture(hwnd);
     return 0;
