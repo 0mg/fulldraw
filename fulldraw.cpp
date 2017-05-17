@@ -50,8 +50,15 @@ public:
   typeWTQueuePacketsEx WTQueuePacketsEx;
   HINSTANCE dll;
   HCTX ctx;
+  Wintab32() {
+    dll = NULL;
+    ctx = NULL;
+  }
+  void end() {
+    WTClose(ctx);
+    FreeLibrary(dll);
+  }
   HINSTANCE init() {
-    HINSTANCE &dll = this->dll;
     dll = LoadLibrary(TEXT("wintab32.dll"));
     if (dll == NULL) {
       return dll;
@@ -63,30 +70,56 @@ public:
     this->WTQueuePacketsEx = (typeWTQueuePacketsEx)GetProcAddress(dll, "WTQueuePacketsEx");
     return dll;
   }
+  HCTX startMouseMode(HWND hwnd) {
+    if (init() == NULL) return NULL;
+    LOGCONTEXTW lcMine;
+    if (WTInfoW(WTI_DEFSYSCTX, 0, &lcMine) == 0) return NULL;
+    lcMine.lcMsgBase = WT_DEFBASE;
+    lcMine.lcPktData = PACKETDATA;
+    lcMine.lcPktMode = PACKETMODE;
+    lcMine.lcMoveMask = PACKETDATA;
+    lcMine.lcBtnUpMask = lcMine.lcBtnDnMask;
+    lcMine.lcOutOrgX = 0;
+    lcMine.lcOutOrgY = 0;
+    lcMine.lcOutExtX = GetSystemMetrics(SM_CXSCREEN);
+    lcMine.lcOutExtY = -GetSystemMetrics(SM_CYSCREEN);
+    ctx = WTOpenW(hwnd, &lcMine, TRUE);
+    return ctx;
+  }
+  BOOL getLastPacket(PACKET &pkt) {
+    UINT FAR oldest;
+    UINT FAR newest;
+    // get que oldest and newest from all queues
+    if (!WTQueuePacketsEx(ctx, &oldest, &newest)) return FALSE;
+    // get newest queue and flush all queues
+    if (!WTPacket(ctx, newest, &pkt)) return FALSE;
+    return TRUE;
+  }
 };
 
 class DCBuffer {
 public:
   HDC dc;
   HBITMAP bmp;
-  DCBuffer(){}
-  void init(HWND hwnd) {
+  DCBuffer(HWND hwnd) {
     HDC hdc = GetDC(hwnd);
-    HDC mdc = CreateCompatibleDC(hdc);
-    HBITMAP bmp = CreateCompatibleBitmap(hdc, C_SCWIDTH, C_SCHEIGHT);
-    RECT rect;
-    HBRUSH brush = CreateSolidBrush(RGB(255, 255, 255));
-    rect.left = 0;
-    rect.top = 0;
-    rect.right = C_SCWIDTH;
-    rect.bottom = C_SCHEIGHT;
-    SelectObject(mdc, bmp);
-    SelectObject(mdc, brush);
-    FillRect(mdc, &rect, brush);
-    DeleteObject(brush);
+    dc = CreateCompatibleDC(hdc);
+    bmp = CreateCompatibleBitmap(hdc, C_SCWIDTH, C_SCHEIGHT);
+    SelectObject(dc, bmp);
+    cls();
     ReleaseDC(hwnd, hdc);
-    this->dc = mdc;
-    this->bmp = bmp;
+  }
+  void cls() {
+    HBRUSH brush = CreateSolidBrush(RGB(255, 255, 255));
+    RECT rect;
+    rect.left = 0, rect.top = 0;
+    rect.right = C_SCWIDTH, rect.bottom = C_SCHEIGHT;
+    FillRect(dc, &rect, brush);
+    DeleteObject(brush);
+  }
+  void end() {
+    DeleteObject(bmp);
+    DeleteDC(dc);
   }
 };
 
@@ -94,6 +127,10 @@ class DrawParams {
 public:
   BOOL drawing;
   INT16 x, y, oldx, oldy;
+  DrawParams() {
+    drawing = FALSE;
+    x = y = oldx = oldy = 0;
+  }
 };
 
 LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
@@ -104,37 +141,18 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   static Wintab32 *wt;
   switch (msg) {
   case WM_CREATE: {
-    // init vars
+    // x, y
     dwpa = new DrawParams;
-    dcb1 = new DCBuffer;
-    dcb2 = new DCBuffer;
+    // load wintab32.dll and open context
     wt = new Wintab32;
-    dwpa->drawing = FALSE;
-    // load Wintab32.dll
-    if (wt->init() != NULL) {
-      LOGCONTEXTW lcMine;
-      if (wt->WTInfoW(WTI_DEFSYSCTX, 0, &lcMine) != 0) {
-        lcMine.lcMsgBase = WT_DEFBASE;
-        lcMine.lcPktData = PACKETDATA;
-        lcMine.lcPktMode = PACKETMODE;
-        lcMine.lcMoveMask = PACKETDATA;
-        lcMine.lcBtnUpMask = lcMine.lcBtnDnMask;
-        lcMine.lcOutOrgX = 0;
-        lcMine.lcOutOrgY = 0;
-        lcMine.lcOutExtX = GetSystemMetrics(SM_CXSCREEN);
-        lcMine.lcOutExtY = -GetSystemMetrics(SM_CYSCREEN);
-        wt->ctx = wt->WTOpenW(hwnd, &lcMine, TRUE);
-      } else {
-        wt->ctx = NULL;
-      }
-    }
+    wt->startMouseMode(hwnd);
     #ifdef dev
     wsprintf(ss, TEXT("fulldraw - %d, %d"), wt->dll, wt->ctx);
     SetWindowText(hwnd, ss);
     #endif
     // ready bitmap buffer
-    dcb1->init(hwnd);
-    dcb2->init(hwnd);
+    dcb1 = new DCBuffer(hwnd);
+    dcb2 = new DCBuffer(hwnd);
     return 0;
   }
   case WM_MOUSELEAVE: {
@@ -156,55 +174,47 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   }
   case WM_MOUSEMOVE: {
     BOOL eraser = FALSE;
-    UINT pensize = 3;
-    UINT pressure = 1;
+    UINT pensize = 1;
+    UINT pressure = 100;
     UINT penmin = 0;
     UINT penmax = 10;
     UINT presmax = 300;
-    #ifdef dev
-    pensize = 8;
-    #endif
     // init
     dwpa->oldx = dwpa->x;
     dwpa->oldy = dwpa->y;
     dwpa->x = LOWORD(lp);
     dwpa->y = HIWORD(lp);
-    wsprintf(ss, TEXT("%d"), GetGuiResources(GetCurrentProcess(), GR_GDIOBJECTS));
+    // debug
+    wsprintf(ss, TEXT("%d"),
+      GetGuiResources(GetCurrentProcess(), GR_GDIOBJECTS));
     tou(hwnd, dcb1->dc, ss);
     // wintab
     if (wt->ctx != NULL) {
-      // wintab packets handler
-      UINT FAR oldest;
-      UINT FAR newest;
       PACKET pkt;
-      // get all queues' oldest to newest
-      if (wt->WTQueuePacketsEx(wt->ctx, &oldest, &newest)) {
-        // get newest queue
-        if (wt->WTPacket(wt->ctx, newest, &pkt)) {
-          pressure = pkt.pkNormalPressure;
-          pensize = pressure / (presmax / penmax);
-          if (pkt.pkCursor == 2) eraser = TRUE;
-          wsprintf(ss, TEXT("%d, %d, %d, %d, %d, %d, %d"), pkt.pkX, pkt.pkY, pkt.pkNormalPressure, pkt.pkCursor, pensize, newest, GetGuiResources(GetCurrentProcess(), GR_GDIOBJECTS));
-          tou(hwnd, dcb1->dc, ss);
-        }
+      if (wt->getLastPacket(pkt)) {
+        pressure = pkt.pkNormalPressure;
+        if (pkt.pkCursor == 2) eraser = TRUE;
+        // debug
+        wsprintf(ss, TEXT("%d, %d, %d, %d, %d, %d"),
+          pkt.pkX, pkt.pkY, pkt.pkNormalPressure, pkt.pkCursor, pensize,
+          GetGuiResources(GetCurrentProcess(), GR_GDIOBJECTS));
+        tou(hwnd, dcb1->dc, ss);
       }
     }
+    // draw line
     if (dwpa->drawing) {
-      {
-        Pen pen2(Color(255, 0, 0, 0), pensize);
-        if (eraser) {
-          pen2.SetColor(Color(255, 255, 255, 255));
-          pen2.SetWidth(10);
-        }
-        pen2.SetStartCap(LineCapRound);
-        pen2.SetEndCap(LineCapRound);
-        //pen2.SetLineJoin(LineJoinRound);
-        Graphics gpctx(dcb1->dc);
-        gpctx.SetSmoothingMode(SmoothingModeAntiAlias);
-        gpctx.DrawLine(&pen2, dwpa->oldx, dwpa->oldy, dwpa->x, dwpa->y);
+      pensize = pressure / (presmax / penmax);
+      Pen pen2(Color(255, 0, 0, 0), pensize);
+      pen2.SetStartCap(LineCapRound);
+      pen2.SetEndCap(LineCapRound);
+      pen2.SetLineJoin(LineJoinRound);
+      if (eraser) {
+        pen2.SetColor(Color(255, 255, 255, 255));
+        pen2.SetWidth(10);
       }
-      //BitBlt(dcb1->dc, 0, 0, C_SCWIDTH, C_SCHEIGHT, adc, 0, 0, SRCCOPY);
-      // finish
+      Graphics gpctx(dcb1->dc);
+      gpctx.SetSmoothingMode(SmoothingModeAntiAlias);
+      gpctx.DrawLine(&pen2, dwpa->oldx, dwpa->oldy, dwpa->x, dwpa->y);
       InvalidateRect(hwnd, NULL, FALSE);
     }
     return 0;
@@ -223,15 +233,6 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     return 0;
   }
   case WM_LBUTTONUP: {
-    /*
-    HBRUSH brush;
-    brush = CreateSolidBrush(RGB(255, 255, 255));
-    RECT rect;
-    rect.left = 0, rect.top = 0;
-    rect.right = C_SCWIDTH, rect.bottom = C_SCHEIGHT;
-    FillRect(adc, &rect, brush);
-    DeleteObject(brush);
-    //*/
     dwpa->drawing = FALSE;
     ReleaseCapture();
     return 0;
@@ -260,9 +261,9 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     #else
     if (MessageBox(hwnd, TEXT("exit?"), C_APPNAME, MB_OKCANCEL) == IDOK) {
     #endif
-      DeleteDC(dcb1->dc);
-      wt->WTClose(wt->ctx);
-      FreeLibrary(wt->dll);
+      dcb1->end();
+      dcb2->end();
+      wt->end();
       DestroyWindow(hwnd);
     }
     return 0;
