@@ -28,11 +28,10 @@ void mbox(LPTSTR str) {
 }
 void tou(HWND hwnd, HDC hdc, LPTSTR str) {
   #ifdef dev
-  RECT rect;
-  rect.left = rect.top = 0;
-  rect.right = C_SCWIDTH;
-  rect.bottom = 20;
-  FillRect(hdc, &rect, (HBRUSH)GetStockObject(WHITE_BRUSH));
+  Graphics gpctx(hdc);
+  SolidBrush *brush = new SolidBrush(C_BGCOLOR);
+  gpctx.FillRectangle(brush, 0, 0, C_SCWIDTH, 20);
+  delete brush;
   TextOut(hdc, 0, 0, str, lstrlen(str));
   InvalidateRect(hwnd, NULL, FALSE);
   #endif
@@ -133,11 +132,12 @@ public:
 
 LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   static DrawParams *dwpa;
+  // GDI+
   static DCBuffer *dcb1;
   static DCBuffer *dcb2;
+  static GraphicsPath *path;
   // Wintab
   static Wintab32 *wt;
-  static GraphicsPath *path;
   switch (msg) {
   case WM_CREATE: {
     // x, y
@@ -216,8 +216,8 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       }
       Graphics gpctx(dcb1->dc);
       gpctx.SetSmoothingMode(SmoothingModeAntiAlias);
-      //gpctx.DrawLine(&pen2, oldx, oldy, x, y);
-      // experimental
+      gpctx.DrawLine(&pen2, oldx, oldy, x, y);
+      /* experimental
       Graphics gpct2(dcb2->dc);
       dcb2->cls();
       Color col(Color(122, 0 ,100, 0));
@@ -229,6 +229,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       gpct2.DrawPath(&pen3, path);
       BitBlt(dcb1->dc, 10, 0, C_SCWIDTH, C_SCHEIGHT, dcb2->dc, 0, 0, SRCAND);
       InvalidateRect(hwnd, NULL, FALSE);
+      //*/
     }
     return 0;
   }
