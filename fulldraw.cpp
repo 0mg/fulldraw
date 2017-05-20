@@ -19,23 +19,20 @@ void __start__() {
   ExitProcess(WinMain(GetModuleHandle(NULL), 0, "", 0));
 }
 
+#ifdef dev
 LONG nn;
 TCHAR ss[255];
 void mbox(LPTSTR str) {
-  #ifdef dev
   MessageBox(NULL, str, str, MB_OK);
-  #endif
 }
 void tou(HWND hwnd, HDC hdc, LPTSTR str) {
-  #ifdef dev
   Graphics gpctx(hdc);
-  SolidBrush *brush = new SolidBrush(C_BGCOLOR);
-  gpctx.FillRectangle(brush, 0, 0, C_SCWIDTH, 20);
-  delete brush;
+  SolidBrush brush(C_BGCOLOR);
+  gpctx.FillRectangle(&brush, 0, 0, C_SCWIDTH, 20);
   TextOut(hdc, 0, 0, str, lstrlen(str));
   InvalidateRect(hwnd, NULL, FALSE);
-  #endif
 }
+#endif
 
 class Wintab32 {
 public:
@@ -51,15 +48,12 @@ public:
   typeWTQueuePacketsEx WTQueuePacketsEx;
   HINSTANCE dll;
   HCTX ctx;
-  Wintab32() {
-    dll = NULL;
-    ctx = NULL;
-  }
   void end() {
     WTClose(ctx);
     FreeLibrary(dll);
   }
   HINSTANCE init() {
+    ctx = NULL;
     dll = LoadLibrary(TEXT("wintab32.dll"));
     if (dll == NULL) {
       return dll;
@@ -102,7 +96,7 @@ class DCBuffer {
 public:
   HDC dc;
   HBITMAP bmp;
-  DCBuffer(HWND hwnd) {
+  void init(HWND hwnd) {
     HDC hdc = GetDC(hwnd);
     dc = CreateCompatibleDC(hdc);
     bmp = CreateCompatibleBitmap(hdc, C_SCWIDTH, C_SCHEIGHT);
@@ -124,34 +118,30 @@ class DrawParams {
 public:
   BOOL drawing;
   INT16 x, y, oldx, oldy;
-  DrawParams() {
+  void init() {
     drawing = FALSE;
     x = y = oldx = oldy = 0;
   }
 };
 
 LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
-  static DrawParams *dwpa;
+  static DrawParams dwpa;
   // GDI+
-  static DCBuffer *dcb1;
-  static DCBuffer *dcb2;
-  static GraphicsPath *path;
+  static DCBuffer dcb1;
   // Wintab
-  static Wintab32 *wt;
+  static Wintab32 wt;
   switch (msg) {
   case WM_CREATE: {
     // x, y
-    dwpa = new DrawParams;
+    dwpa.init();
     // load wintab32.dll and open context
-    wt = new Wintab32;
-    wt->startMouseMode(hwnd);
+    wt.startMouseMode(hwnd);
     #ifdef dev
-    wsprintf(ss, TEXT("fulldraw - %d, %d"), wt->dll, wt->ctx);
+    wsprintf(ss, TEXT("fulldraw - %d, %d"), wt.dll, wt.ctx);
     SetWindowText(hwnd, ss);
     #endif
     // ready bitmap buffer
-    dcb1 = new DCBuffer(hwnd);
-    dcb2 = new DCBuffer(hwnd);
+    dcb1.init(hwnd);
     return 0;
   }
   case WM_MOUSELEAVE: {
@@ -167,7 +157,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   case WM_PAINT: {
     PAINTSTRUCT ps;
     HDC odc = BeginPaint(hwnd, &ps);
-    BitBlt(odc, 0, 0, C_SCWIDTH, C_SCHEIGHT, dcb1->dc, 0, 0, SRCCOPY);
+    BitBlt(odc, 0, 0, C_SCWIDTH, C_SCHEIGHT, dcb1.dc, 0, 0, SRCCOPY);
     EndPaint(hwnd, &ps);
     return 0;
   }
@@ -179,33 +169,35 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     UINT penmax = 10;
     UINT presmax = 300;
     // init
-    INT16 &oldx = dwpa->oldx;
-    INT16 &oldy = dwpa->oldy;
-    INT16 &x = dwpa->x;
-    INT16 &y = dwpa->y;
+    INT16 &oldx = dwpa.oldx;
+    INT16 &oldy = dwpa.oldy;
+    INT16 &x = dwpa.x;
+    INT16 &y = dwpa.y;
     oldx = x;
     oldy = y;
     x = LOWORD(lp);
     y = HIWORD(lp);
-    // debug
+    #ifdef dev
     wsprintf(ss, TEXT("%d"),
       GetGuiResources(GetCurrentProcess(), GR_GDIOBJECTS));
-    tou(hwnd, dcb1->dc, ss);
+    tou(hwnd, dcb1.dc, ss);
+    #endif
     // wintab
-    if (wt->ctx != NULL) {
+    if (wt.ctx != NULL) {
       PACKET pkt;
-      if (wt->getLastPacket(pkt)) {
+      if (wt.getLastPacket(pkt)) {
         pressure = pkt.pkNormalPressure;
         if (pkt.pkCursor == 2) eraser = TRUE;
-        // debug
+        #ifdef dev
         wsprintf(ss, TEXT("%d, %d, %d, %d, %d, %d"),
           pkt.pkX, pkt.pkY, pkt.pkNormalPressure, pkt.pkCursor, pensize,
           GetGuiResources(GetCurrentProcess(), GR_GDIOBJECTS));
-        tou(hwnd, dcb1->dc, ss);
+        tou(hwnd, dcb1.dc, ss);
+        #endif
       }
     }
     // draw line
-    if (dwpa->drawing) {
+    if (dwpa.drawing) {
       pensize = pressure / (presmax / penmax);
       Pen pen2(C_FGCOLOR, pensize);
       pen2.SetStartCap(LineCapRound);
@@ -214,7 +206,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         pen2.SetColor(C_BGCOLOR);
         pen2.SetWidth(10);
       }
-      Graphics gpctx(dcb1->dc);
+      Graphics gpctx(dcb1.dc);
       gpctx.SetSmoothingMode(SmoothingModeAntiAlias);
       gpctx.DrawLine(&pen2, oldx, oldy, x, y);
       /* experimental
@@ -228,35 +220,35 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       path->AddLine(Point(oldx, oldy), Point(x, y));
       gpct2.DrawPath(&pen3, path);
       BitBlt(dcb1->dc, 10, 0, C_SCWIDTH, C_SCHEIGHT, dcb2->dc, 0, 0, SRCAND);
-      InvalidateRect(hwnd, NULL, FALSE);
       //*/
+      InvalidateRect(hwnd, NULL, FALSE);
     }
     return 0;
   }
   case WM_ACTIVATE: {
     if (LOWORD(wp) == WA_INACTIVE) {
-      dwpa->drawing = FALSE;
+      dwpa.drawing = FALSE;
       SetWindowLongPtr(hwnd, GWL_EXSTYLE, WS_EX_LEFT);
       SetWindowPos(hwnd, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
-    } else {
+    } else { 
       #ifndef dev
       SetWindowLongPtr(hwnd, GWL_EXSTYLE, WS_EX_TOPMOST);
       SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
       #endif
     }
+    #ifdef dev
     wsprintf(ss, TEXT("%d,%d"), LOWORD(wp), GetTickCount());
-    tou(hwnd, dcb1->dc, ss);
+    tou(hwnd, dcb1.dc, ss);
+    #endif
     return 0;
   }
   case WM_LBUTTONUP: {
-    delete path;
-    dwpa->drawing = FALSE;
+    dwpa.drawing = FALSE;
     ReleaseCapture();
     return 0;
   }
   case WM_LBUTTONDOWN: {
-    path = new GraphicsPath();
-    dwpa->drawing = TRUE;
+    dwpa.drawing = TRUE;
     SetCapture(hwnd);
     return 0;
   }
@@ -279,9 +271,8 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     #else
     if (MessageBox(hwnd, TEXT("exit?"), C_APPNAME, MB_OKCANCEL) == IDOK) {
     #endif
-      dcb1->end();
-      dcb2->end();
-      wt->end();
+      dcb1.end();
+      wt.end();
       DestroyWindow(hwnd);
     }
     return 0;
