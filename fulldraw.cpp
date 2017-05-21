@@ -144,13 +144,6 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     dcb1.init(hwnd);
     return 0;
   }
-  case WM_MOUSELEAVE: {
-    ReleaseCapture();
-    return 0;
-  }
-  case WM_TIMER: {
-    return 0;
-  }
   case WM_ERASEBKGND: {
     return 1;
   }
@@ -230,7 +223,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       dwpa.drawing = FALSE;
       SetWindowLongPtr(hwnd, GWL_EXSTYLE, WS_EX_LEFT);
       SetWindowPos(hwnd, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
-    } else { 
+    } else {
       #ifndef dev
       SetWindowLongPtr(hwnd, GWL_EXSTYLE, WS_EX_TOPMOST);
       SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
