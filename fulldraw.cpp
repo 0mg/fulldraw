@@ -19,21 +19,6 @@ void __start__() {
   ExitProcess(WinMain(GetModuleHandle(NULL), 0, "", 0));
 }
 
-#ifdef dev
-LONG nn;
-TCHAR ss[255];
-void mbox(LPTSTR str) {
-  MessageBox(NULL, str, str, MB_OK);
-}
-void tou(HWND hwnd, HDC hdc, LPTSTR str) {
-  Graphics gpctx(hdc);
-  Pen pen(C_BGCOLOR, 40);
-  gpctx.DrawLine(&pen, 0, 0, C_SCWIDTH, 0);
-  TextOut(hdc, 0, 0, str, lstrlen(str));
-  InvalidateRect(hwnd, NULL, FALSE);
-}
-#endif
-
 class Wintab32 {
 public:
   typedef UINT (API *typeWTInfoW)(UINT, UINT, LPVOID);
@@ -136,19 +121,8 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     dwpa.init();
     // load wintab32.dll and open context
     wt.startMouseMode(hwnd);
-    #ifdef dev
-    wsprintf(ss, TEXT("fulldraw - %d, %d"), wt.dll, wt.ctx);
-    SetWindowText(hwnd, ss);
-    #endif
     // ready bitmap buffer
     dcb1.init(hwnd);
-    return 0;
-  }
-  case WM_MOUSELEAVE: {
-    ReleaseCapture();
-    return 0;
-  }
-  case WM_TIMER: {
     return 0;
   }
   case WM_ERASEBKGND: {
@@ -177,23 +151,12 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     oldy = y;
     x = LOWORD(lp);
     y = HIWORD(lp);
-    #ifdef dev
-    wsprintf(ss, TEXT("%d"),
-      GetGuiResources(GetCurrentProcess(), GR_GDIOBJECTS));
-    tou(hwnd, dcb1.dc, ss);
-    #endif
     // wintab
     if (wt.ctx != NULL) {
       PACKET pkt;
       if (wt.getLastPacket(pkt)) {
         pressure = pkt.pkNormalPressure;
         if (pkt.pkCursor == 2) eraser = TRUE;
-        #ifdef dev
-        wsprintf(ss, TEXT("%d, %d, %d, %d, %d, %d"),
-          pkt.pkX, pkt.pkY, pkt.pkNormalPressure, pkt.pkCursor, pensize,
-          GetGuiResources(GetCurrentProcess(), GR_GDIOBJECTS));
-        tou(hwnd, dcb1.dc, ss);
-        #endif
       }
     }
     // draw line
@@ -218,16 +181,12 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       dwpa.drawing = FALSE;
       SetWindowLongPtr(hwnd, GWL_EXSTYLE, WS_EX_LEFT);
       SetWindowPos(hwnd, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
-    } else { 
+    } else {
       #ifndef dev
       SetWindowLongPtr(hwnd, GWL_EXSTYLE, WS_EX_TOPMOST);
       SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
       #endif
     }
-    #ifdef dev
-    wsprintf(ss, TEXT("%d,%d"), LOWORD(wp), GetTickCount());
-    tou(hwnd, dcb1.dc, ss);
-    #endif
     return 0;
   }
   case WM_LBUTTONUP: {
@@ -300,21 +259,12 @@ int WINAPI WinMain(HINSTANCE hi, HINSTANCE hp, LPSTR cl, int cs){
 
   // Main Window: Create, Show
   hwnd = CreateWindowEx(
-    #ifdef dev
-    WS_EX_LEFT,
-    C_WINDOW_CLASS, C_APPNAME,
-    WS_VISIBLE | WS_SYSMENU | WS_POPUP | WS_OVERLAPPEDWINDOW,
-    80, 80,
-    C_SCWIDTH/1.5,
-    C_SCHEIGHT/1.5,
-    #else
     WS_EX_TOPMOST,
     C_WINDOW_CLASS, C_APPNAME,
     WS_VISIBLE | WS_SYSMENU | WS_POPUP,
     0, 0,
     C_SCWIDTH,
     C_SCHEIGHT,
-    #endif
     NULL, NULL, hi, NULL
   );
   if (hwnd == NULL) return 1;
