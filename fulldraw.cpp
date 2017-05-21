@@ -27,8 +27,8 @@ void mbox(LPTSTR str) {
 }
 void tou(HWND hwnd, HDC hdc, LPTSTR str) {
   Graphics gpctx(hdc);
-  SolidBrush brush(C_BGCOLOR);
-  gpctx.FillRectangle(&brush, 0, 0, C_SCWIDTH, 20);
+  Pen pen(C_BGCOLOR, 40);
+  gpctx.DrawLine(&pen, 0, 0, C_SCWIDTH, 0);
   TextOut(hdc, 0, 0, str, lstrlen(str));
   InvalidateRect(hwnd, NULL, FALSE);
 }
