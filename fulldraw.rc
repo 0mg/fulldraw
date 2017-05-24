@@ -7,7 +7,7 @@ FILEVERSION 1,0,0,0
 FILETYPE VFT_APP {
   BLOCK "StringFileInfo" {
     BLOCK "041103A4" {
-      VALUE "ProductVersion", "0.0.4\0"
+      VALUE "ProductVersion", "0.0.5\0"
       VALUE "FileDescription", "drawing to fullscreen canvas\0"
       VALUE "CompanyName", "github.com/0mg\0"
       VALUE "ProductName", "fulldraw\0"
