@@ -103,9 +103,12 @@ class DrawParams {
 public:
   BOOL drawing;
   INT16 x, y, oldx, oldy;
+  UINT penmax, presmax;
   void init() {
     drawing = FALSE;
     x = y = oldx = oldy = 0;
+    penmax = 10;
+    presmax = 300;
   }
 };
 
@@ -140,8 +143,8 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     UINT pensize = 1;
     UINT pressure = 100;
     UINT penmin = 0;
-    UINT penmax = 10;
-    UINT presmax = 300;
+    UINT &penmax = dwpa.penmax;
+    UINT &presmax = dwpa.presmax;
     // init
     INT16 &oldx = dwpa.oldx;
     INT16 &oldy = dwpa.oldy;
@@ -169,10 +172,13 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         pen2.SetColor(C_BGCOLOR);
         pen2.SetWidth(10);
       }
-      Graphics gpctx(dcb1.dc);
-      gpctx.SetSmoothingMode(SmoothingModeAntiAlias);
-      gpctx.DrawLine(&pen2, oldx, oldy, x, y);
-      InvalidateRect(hwnd, NULL, FALSE);
+      HDC odc = GetDC(hwnd);
+      for (UINT i = 0; i <= 1; i++) {
+        Graphics gpctx(i ? dcb1.dc : odc);
+        gpctx.SetSmoothingMode(SmoothingModeAntiAlias);
+        gpctx.DrawLine(&pen2, oldx, oldy, x, y);
+      }
+      ReleaseDC(hwnd, odc);
     }
     return 0;
   }
