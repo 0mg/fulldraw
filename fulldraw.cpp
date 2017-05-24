@@ -118,9 +118,12 @@ class DrawParams {
 public:
   BOOL drawing;
   INT16 x, y, oldx, oldy;
+  UINT penmax, presmax;
   void init() {
     drawing = FALSE;
     x = y = oldx = oldy = 0;
+    penmax = 10;
+    presmax = 300;
   }
 };
 
@@ -159,8 +162,8 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     UINT pensize = 1;
     UINT pressure = 100;
     UINT penmin = 0;
-    UINT penmax = 10;
-    UINT presmax = 300;
+    UINT &penmax = dwpa.penmax;
+    UINT &presmax = dwpa.presmax;
     // init
     INT16 &oldx = dwpa.oldx;
     INT16 &oldy = dwpa.oldy;
@@ -199,22 +202,13 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         pen2.SetColor(C_BGCOLOR);
         pen2.SetWidth(10);
       }
-      Graphics gpctx(dcb1.dc);
-      gpctx.SetSmoothingMode(SmoothingModeAntiAlias);
-      gpctx.DrawLine(&pen2, oldx, oldy, x, y);
-      /* experimental
-      Graphics gpct2(dcb2->dc);
-      dcb2->cls();
-      Color col(Color(122, 0 ,100, 0));
-      Pen pen3(col, pensize);
-      pen3.SetStartCap(LineCapRound);
-      pen3.SetEndCap(LineCapRound);
-      pen3.SetLineJoin(LineJoinRound);
-      path->AddLine(Point(oldx, oldy), Point(x, y));
-      gpct2.DrawPath(&pen3, path);
-      BitBlt(dcb1->dc, 10, 0, C_SCWIDTH, C_SCHEIGHT, dcb2->dc, 0, 0, SRCAND);
-      //*/
-      InvalidateRect(hwnd, NULL, FALSE);
+      HDC odc = GetDC(hwnd);
+      for (UINT i = 0; i <= 1; i++) {
+        Graphics gpctx(i ? dcb1.dc : odc);
+        gpctx.SetSmoothingMode(SmoothingModeAntiAlias);
+        gpctx.DrawLine(&pen2, oldx, oldy, x, y);
+      }
+      ReleaseDC(hwnd, odc);
     }
     return 0;
   }
@@ -247,6 +241,46 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   }
   case WM_RBUTTONUP: {
     PostMessage(hwnd, WM_CLOSE, 0, 0);
+    return 0;
+  }
+  case WM_KEYDOWN: {
+    #ifdef dev
+    wsprintf(ss, TEXT("%d"), wp);
+    tou(hwnd, dcb1.dc, ss);
+    #endif
+    switch (wp) {
+    case 46: { // delete
+      if (MessageBox(hwnd, TEXT("erase?"), C_APPNAME, MB_OKCANCEL) == IDOK) {
+        dcb1.cls();
+        InvalidateRect(hwnd, NULL, FALSE);
+      }
+      return 0;
+    }
+    case 37: { // left
+      if (dwpa.presmax-- <= 1) {
+        dwpa.presmax = 1;
+      }
+      return 0;
+    }
+    case 39: { // right
+      if (dwpa.presmax++ >= 1023) {
+        dwpa.presmax = 1023;
+      }
+      return 0;
+    }
+    case 40: { // down
+      if (dwpa.penmax-- <= 1) {
+        dwpa.penmax = 1;
+      }
+      return 0;
+    }
+    case 38: { // up
+      if (dwpa.penmax++ >= 50) {
+        dwpa.penmax = 50;
+      }
+      return 0;
+    }
+    }
     return 0;
   }
   case WM_CHAR: {
