@@ -22,16 +22,15 @@ void __start__() {
 #ifdef dev
 LONG nn;
 TCHAR ss[255];
-void mbox(LPTSTR str) {
-  MessageBox(NULL, str, str, MB_OK);
-}
-void tou(HWND hwnd, HDC hdc, LPTSTR str) {
+void tou(LPTSTR str, HDC hdc, HWND hwnd) {
   Graphics gpctx(hdc);
   Pen pen(C_BGCOLOR, 40);
   gpctx.DrawLine(&pen, 0, 0, C_SCWIDTH, 0);
   TextOut(hdc, 0, 0, str, lstrlen(str));
   InvalidateRect(hwnd, NULL, FALSE);
 }
+#define touf(f,...)  wsprintf(ss,TEXT(f),__VA_ARGS__),tou(ss,dcb1.dc,hwnd)
+#define mboxf(f,...) wsprintf(ss,TEXT(f),__VA_ARGS__),MessageBox(NULL,ss,ss,MB_OK)
 #endif
 
 class Wintab32 {
@@ -96,10 +95,10 @@ class DCBuffer {
 public:
   HDC dc;
   HBITMAP bmp;
-  void init(HWND hwnd) {
+  void init(HWND hwnd, int w = C_SCWIDTH, int h = C_SCHEIGHT) {
     HDC hdc = GetDC(hwnd);
     dc = CreateCompatibleDC(hdc);
-    bmp = CreateCompatibleBitmap(hdc, C_SCWIDTH, C_SCHEIGHT);
+    bmp = CreateCompatibleBitmap(hdc, w, h);
     SelectObject(dc, bmp);
     cls();
     ReleaseDC(hwnd, hdc);
@@ -127,8 +126,61 @@ public:
   }
 };
 
+class Cursor {
+private:
+  void drawBMP(HWND hwnd, char *ptr, int w, int h, UINT penmax) {
+    DCBuffer dcb;
+    dcb.init(hwnd, w, h);
+    Graphics gpctx(dcb.dc);
+    Pen pen2(C_FGCOLOR, 1);
+//    pen2.SetDashStyle(DashStyleDot);
+    gpctx.DrawEllipse(&pen2,
+      (INT)((w / 2) - (penmax / 2)),
+      (INT)((h / 2) - (penmax / 2)),
+      penmax, penmax
+    );
+    gpctx.DrawLine(&pen2, w / 2, 0, w / 2, h);
+    gpctx.DrawLine(&pen2, 0, h / 2, w, h / 2);
+    for (int y = 0; y < h; y++) {
+      for (int x = 0; x < w;) {
+        #define pixel (GetPixel(dcb.dc, x++, y) == RGB(0, 0, 0))
+        *ptr = pixel << 7 | pixel << 6 | pixel << 5 | pixel << 4 |
+               pixel << 3 | pixel << 2 | pixel << 1 | pixel << 0;
+        ptr++;
+      }
+    }
+    dcb.end();
+  }
+  HCURSOR create(HWND hwnd, UINT penmax) {
+    #define w 64
+    #define h w
+    #define ONE_BYTE 8
+    int x = w / 2, y = h / 2;
+    char and[(w / ONE_BYTE) * h];
+    char xor[(w / ONE_BYTE) * h];
+    drawBMP(hwnd, xor, w, h, penmax);
+    for (int i = 0; i < h; i++) {
+      for (int k = 0; k < (w / ONE_BYTE); k++) {
+        int idx = (i * (w / ONE_BYTE)) + k;
+        and[idx] = 0xff;
+      }
+    }
+    return CreateCursor(GetModuleHandle(NULL), x, y, w, h, and, xor);
+  }
+public:
+  BOOL setCursor(HWND hwnd, UINT penmax) {
+    HCURSOR cursor = create(hwnd, penmax);
+    HCURSOR old = (HCURSOR)GetClassLongPtr(hwnd, GCLP_HCURSOR);
+    SetClassLongPtr(hwnd, GCL_HCURSOR, (LONG)cursor);
+    SetCursor(cursor);
+    DestroyCursor(old);
+    return 0;
+  }
+};
+
 LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   static DrawParams dwpa;
+  static Cursor cursor;
   // GDI+
   static DCBuffer dcb1;
   // Wintab
@@ -145,6 +197,8 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     #endif
     // ready bitmap buffer
     dcb1.init(hwnd);
+    // cursor
+    cursor.setCursor(hwnd, dwpa.penmax);
     return 0;
   }
   case WM_ERASEBKGND: {
@@ -174,9 +228,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     x = LOWORD(lp);
     y = HIWORD(lp);
     #ifdef dev
-    wsprintf(ss, TEXT("%d"),
-      GetGuiResources(GetCurrentProcess(), GR_GDIOBJECTS));
-    tou(hwnd, dcb1.dc, ss);
+    touf("%d", GetGuiResources(GetCurrentProcess(), GR_GDIOBJECTS));
     #endif
     // wintab
     if (wt.ctx != NULL) {
@@ -185,10 +237,9 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         pressure = pkt.pkNormalPressure;
         if (pkt.pkCursor == 2) eraser = TRUE;
         #ifdef dev
-        wsprintf(ss, TEXT("%d, %d, %d, %d, %d, %d"),
+        touf("%d, %d, %d, %d, %d, %d",
           pkt.pkX, pkt.pkY, pkt.pkNormalPressure, pkt.pkCursor, pensize,
           GetGuiResources(GetCurrentProcess(), GR_GDIOBJECTS));
-        tou(hwnd, dcb1.dc, ss);
         #endif
       }
     }
@@ -224,8 +275,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       #endif
     }
     #ifdef dev
-    wsprintf(ss, TEXT("%d,%d"), LOWORD(wp), GetTickCount());
-    tou(hwnd, dcb1.dc, ss);
+    touf("%d,%d", LOWORD(wp), GetTickCount());
     #endif
     return 0;
   }
@@ -235,27 +285,52 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     return 0;
   }
   case WM_LBUTTONDOWN: {
+    INT16 &oldx = dwpa.oldx;
+    INT16 &oldy = dwpa.oldy;
+    INT16 &x = dwpa.x;
+    INT16 &y = dwpa.y;
+    oldx = x;
+    oldy = y;
+    x = LOWORD(lp);
+    y = HIWORD(lp);
     dwpa.drawing = TRUE;
     SetCapture(hwnd);
     return 0;
   }
   case WM_RBUTTONUP: {
-    PostMessage(hwnd, WM_CLOSE, 0, 0);
+    dwpa.drawing = FALSE;
+    HMENU menu = LoadMenu(GetModuleHandle(NULL), TEXT("C_CTXMENU"));
+    HMENU popup = GetSubMenu(menu, 0);
+    POINT point;
+    point.x = LOWORD(lp);
+    point.y = HIWORD(lp);
+    ClientToScreen(hwnd, &point);
+    TrackPopupMenuEx(popup, 0, point.x, point.y, hwnd, NULL);
     return 0;
   }
-  case WM_KEYDOWN: {
-    #ifdef dev
-    wsprintf(ss, TEXT("%d"), wp);
-    tou(hwnd, dcb1.dc, ss);
-    #endif
-    switch (wp) {
-    case 46: { // delete
-      if (MessageBox(hwnd, TEXT("erase?"), C_APPNAME, MB_OKCANCEL) == IDOK) {
+  case WM_COMMAND: {
+    switch (LOWORD(wp)) {
+    case 0xDEAD: {
+      PostMessage(hwnd, WM_CLOSE, 0, 0);
+      return 0;
+    }
+    case 0x000C: {
+      if (MessageBox(hwnd, TEXT("clear?"), C_APPNAME, MB_OKCANCEL) == IDOK) {
         dcb1.cls();
         InvalidateRect(hwnd, NULL, FALSE);
       }
       return 0;
     }
+    }
+    return 0;
+  }
+  case WM_KEYDOWN: {
+    #ifdef dev
+    touf("%d", wp);
+    #endif
+    switch (wp) {
+    case VK_ESCAPE: PostMessage(hwnd, WM_COMMAND, 0xDEAD, 0); return 0;
+    case VK_DELETE: PostMessage(hwnd, WM_COMMAND, 0x000C, 0); return 0;
     case 37: { // left
       if (dwpa.presmax-- <= 1) {
         dwpa.presmax = 1;
@@ -269,24 +344,13 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       return 0;
     }
     case 40: { // down
-      if (dwpa.penmax-- <= 1) {
-        dwpa.penmax = 1;
-      }
+      if (dwpa.penmax > 1) dwpa.penmax--;
+      cursor.setCursor(hwnd, dwpa.penmax);
       return 0;
     }
     case 38: { // up
-      if (dwpa.penmax++ >= 50) {
-        dwpa.penmax = 50;
-      }
-      return 0;
-    }
-    }
-    return 0;
-  }
-  case WM_CHAR: {
-    switch (wp) {
-    case VK_ESCAPE: {
-      PostMessage(hwnd, WM_CLOSE, 0, 0);
+      if (dwpa.penmax < 50) dwpa.penmax++;
+      cursor.setCursor(hwnd, dwpa.penmax);
       return 0;
     }
     }
@@ -329,12 +393,12 @@ int WINAPI WinMain(HINSTANCE hi, HINSTANCE hp, LPSTR cl, int cs){
   wc.cbClsExtra = 0;
   wc.cbWndExtra = 0;
   wc.hInstance = hi;
-  wc.hIcon = (HICON)LoadImage(hi, TEXT("APPICON"), IMAGE_ICON, 0, 0, LR_DEFAULTCOLOR);
+  wc.hIcon = (HICON)LoadImage(hi, TEXT("C_APPICON"), IMAGE_ICON, 0, 0, LR_DEFAULTCOLOR);
   wc.hCursor = (HCURSOR)LoadImage(NULL, IDC_ARROW, IMAGE_CURSOR, 0, 0, LR_SHARED);
   wc.hbrBackground = (HBRUSH)GetStockObject(LTGRAY_BRUSH);
   wc.lpszMenuName = NULL;
   wc.lpszClassName = C_WINDOW_CLASS;
-  wc.hIconSm = (HICON)LoadImage(hi, TEXT("APPICON"), IMAGE_ICON, 0, 0, LR_DEFAULTCOLOR);
+  wc.hIconSm = (HICON)LoadImage(hi, TEXT("C_APPICON"), IMAGE_ICON, 0, 0, LR_DEFAULTCOLOR);
   if (RegisterClassEx(&wc) == 0) return 1;
 
   // Main Window: Create, Show
