@@ -51,7 +51,7 @@ public:
   HCTX ctx;
   AXIS *pressure;
   void end() {
-    WTClose(ctx);
+    if (ctx != NULL) WTClose(ctx);
     FreeLibrary(dll);
   }
   HINSTANCE init() {
@@ -61,11 +61,16 @@ public:
     if (dll == NULL) {
       return dll;
     }
-    this->WTInfoW = (typeWTInfoW)GetProcAddress(dll, "WTInfoW");
-    this->WTOpenW = (typeWTOpenW)GetProcAddress(dll, "WTOpenW");
-    this->WTClose = (typeWTClose)GetProcAddress(dll, "WTClose");
-    this->WTPacket = (typeWTPacket)GetProcAddress(dll, "WTPacket");
-    this->WTQueuePacketsEx = (typeWTQueuePacketsEx)GetProcAddress(dll, "WTQueuePacketsEx");
+    WTInfoW = (typeWTInfoW)GetProcAddress(dll, "WTInfoW");
+    WTOpenW = (typeWTOpenW)GetProcAddress(dll, "WTOpenW");
+    WTClose = (typeWTClose)GetProcAddress(dll, "WTClose");
+    WTPacket = (typeWTPacket)GetProcAddress(dll, "WTPacket");
+    WTQueuePacketsEx = (typeWTQueuePacketsEx)GetProcAddress(dll, "WTQueuePacketsEx");
+    if (WTInfoW == NULL) return dll = NULL;
+    if (WTOpenW == NULL) return dll = NULL;
+    if (WTClose == NULL) return dll = NULL;
+    if (WTPacket == NULL) return dll = NULL;
+    if (WTQueuePacketsEx == NULL) return dll = NULL;
     return dll;
   }
   BOOL getPressureMinMax(AXIS *axis) {
@@ -130,34 +135,41 @@ class DrawParams {
 public:
   BOOL drawing;
   INT16 x, y, oldx, oldy;
-  UINT penmax, presmax;
+  INT penmax, presmax;
   void init() {
     drawing = FALSE;
     x = y = oldx = oldy = 0;
     if (wintab32.pressure) {
-      presmax = wintab32.pressure->axMax / 3;
-      penmax = presmax / 30;
+      presmax = wintab32.pressure->axMax / 2.2;
     } else {
       presmax = 300;
-      penmax = presmax / 30;
     }
+    penmax = presmax / 30 - 1; // - 1 is for cursor design (can omit)
   }
 };
 
 static class Cursor {
 private:
-  void drawBMP(HWND hwnd, char *ptr, int w, int h, UINT penmax) {
+  void drawBMP(HWND hwnd, BYTE *ptr, int w, int h, INT penmax, INT presmax) {
     DCBuffer dcb;
     dcb.init(hwnd, w, h);
     Graphics gpctx(dcb.dc);
     Pen pen2(Color(255, 0, 0, 0), 1);
     gpctx.DrawEllipse(&pen2,
-      (INT)((w / 2) - (penmax / 2)),
-      (INT)((h / 2) - (penmax / 2)),
+      (w / 2) - (penmax / 2),
+      (h / 2) - (penmax / 2),
       penmax, penmax
     );
-    gpctx.DrawLine(&pen2, w / 2, 0, w / 2, h);
-    gpctx.DrawLine(&pen2, 0, h / 2, w, h / 2);
+    {
+      INT axmax = wintab32.pressure ? wintab32.pressure->axMax : 1023;
+      INT length = w * presmax / axmax;
+      gpctx.DrawLine(&pen2,
+        w / 2, (h / 2) - (length / 2), w / 2, (h / 2) + (length / 2)
+      );
+      gpctx.DrawLine(&pen2,
+        (w / 2) - (length / 2), h / 2, (w / 2) + (length / 2), h / 2
+      );
+    }
     for (int y = 0; y < h; y++) {
       for (int x = 0; x < w;) {
         #define pixel (GetPixel(dcb.dc, x++, y) != RGB(255, 255, 255))
@@ -168,25 +180,22 @@ private:
     }
     dcb.end();
   }
-  HCURSOR create(HWND hwnd, UINT penmax) {
-    #define w 64
-    #define h w
+  HCURSOR create(HWND hwnd, INT penmax, INT presmax) {
     #define ONE_BYTE 8
+    #define w (ONE_BYTE * 8)
+    #define h w
     int x = w / 2, y = h / 2;
-    char and[(w / ONE_BYTE) * h];
-    char xor[(w / ONE_BYTE) * h];
-    drawBMP(hwnd, xor, w, h, penmax);
-    for (int i = 0; i < h; i++) {
-      for (int k = 0; k < (w / ONE_BYTE); k++) {
-        int idx = (i * (w / ONE_BYTE)) + k;
-        and[idx] = 0xff;
-      }
+    BYTE and[(w / ONE_BYTE) * h];
+    BYTE xor[(w / ONE_BYTE) * h];
+    drawBMP(hwnd, xor, w, h, penmax, presmax);
+    for (int i = 0; i < sizeof(and); i++) {
+      and[i] = 0xff;
     }
     return CreateCursor(GetModuleHandle(NULL), x, y, w, h, and, xor);
   }
 public:
-  BOOL setCursor(HWND hwnd, UINT penmax) {
-    HCURSOR cursor = create(hwnd, penmax);
+  BOOL setCursor(HWND hwnd, INT penmax, INT presmax) {
+    HCURSOR cursor = create(hwnd, penmax, presmax);
     HCURSOR old = (HCURSOR)GetClassLongPtr(hwnd, GCLP_HCURSOR);
     SetClassLongPtr(hwnd, GCL_HCURSOR, (LONG)cursor);
     SetCursor(cursor);
@@ -214,7 +223,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     // ready bitmap buffer
     dcb1.init(hwnd);
     // cursor
-    cursor.setCursor(hwnd, dwpa.penmax);
+    cursor.setCursor(hwnd, dwpa.penmax, dwpa.presmax);
     return 0;
   }
   case WM_ERASEBKGND: {
@@ -231,8 +240,8 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     BOOL eraser = FALSE;
     UINT pensize = 1;
     UINT pressure = 100;
-    UINT &penmax = dwpa.penmax;
-    UINT &presmax = dwpa.presmax;
+    INT &penmax = dwpa.penmax;
+    INT &presmax = dwpa.presmax;
     // init
     INT16 &oldx = dwpa.oldx;
     INT16 &oldy = dwpa.oldy;
@@ -250,7 +259,6 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       PACKET pkt;
       if (wt.getLastPacket(pkt)) {
         pressure = pkt.pkNormalPressure;
-        if (pressure > presmax) pressure = presmax;
         if (pkt.pkCursor == 2) eraser = TRUE;
         #ifdef dev
         touf("%d, %d, %d, %d, %d, gdi:%d, %d, %d",
@@ -259,9 +267,12 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         #endif
       }
     }
+    if (pressure > presmax) pressure = presmax;
     // draw line
     if (dwpa.drawing) {
-      pensize = pressure / (presmax / penmax);
+      UINT scale = presmax / penmax;
+      if (scale == 0) scale = 1;
+      pensize = pressure / scale;
       Pen pen2(C_FGCOLOR, pensize);
       pen2.SetStartCap(LineCapRound);
       pen2.SetEndCap(LineCapRound);
@@ -347,34 +358,42 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     switch (wp) {
     case VK_ESCAPE: PostMessage(hwnd, WM_COMMAND, 0xDEAD, 0); return 0;
     case VK_DELETE: PostMessage(hwnd, WM_COMMAND, 0x000C, 0); return 0;
-    case 65: // a
-    case 37: { // left
-      UINT min = 0;
-      dwpa.presmax -= 5;
-      if (dwpa.presmax < min) {
-        dwpa.presmax = min;
-      }
-      return 0;
-    }
-    case 68: // d
-    case 39: { // right
-      UINT max = wt.pressure ? wt.pressure->axMax : 1023;
-      dwpa.presmax += 5;
-      if (dwpa.presmax > max) {
-        dwpa.presmax = max;
-      }
+    case VK_F5: {
+      MessageBox(hwnd, TEXT("MIX"), C_APPNAME, MB_OK);
       return 0;
     }
     case 83: // s
-    case 40: { // down
-      if (dwpa.penmax > 1) dwpa.penmax--;
-      cursor.setCursor(hwnd, dwpa.penmax);
+    case VK_DOWN: { // down
+      #define vmin 1
+      if (--dwpa.penmax < vmin) dwpa.penmax = vmin;
+      cursor.setCursor(hwnd, dwpa.penmax, dwpa.presmax);
       return 0;
     }
     case 87: // w
-    case 38: { // up
-      if (dwpa.penmax < 63) dwpa.penmax++;
-      cursor.setCursor(hwnd, dwpa.penmax);
+    case VK_UP: { // up
+      #define vmax 60
+      if (++dwpa.penmax > vmax) dwpa.penmax = vmax;
+      cursor.setCursor(hwnd, dwpa.penmax, dwpa.presmax);
+      return 0;
+    }
+    case 65: // a
+    case VK_LEFT: { // left
+      INT min = dwpa.penmax;
+      dwpa.presmax -= 50;
+      if (dwpa.presmax < min) {
+        dwpa.presmax = min;
+      }
+      cursor.setCursor(hwnd, dwpa.penmax, dwpa.presmax);
+      return 0;
+    }
+    case 68: // d
+    case VK_RIGHT: { // right
+      UINT max = wt.pressure ? wt.pressure->axMax : 1023;
+      dwpa.presmax += 50;
+      if (dwpa.presmax > max) {
+        dwpa.presmax = max;
+      }
+      cursor.setCursor(hwnd, dwpa.penmax, dwpa.presmax);
       return 0;
     }
     }
