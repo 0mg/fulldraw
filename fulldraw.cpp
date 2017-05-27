@@ -33,7 +33,9 @@ void tou(LPTSTR str, HDC hdc, HWND hwnd) {
 #define mboxf(f,...) wsprintf(ss,TEXT(f),__VA_ARGS__),MessageBox(NULL,ss,ss,MB_OK)
 #endif
 
-class Wintab32 {
+static class Wintab32 {
+private:
+  AXIS pressureData;
 public:
   typedef UINT (API *typeWTInfoW)(UINT, UINT, LPVOID);
   typedef HCTX (API *typeWTOpenW)(HWND, LPLOGCONTEXTW, BOOL);
@@ -47,11 +49,13 @@ public:
   typeWTQueuePacketsEx WTQueuePacketsEx;
   HINSTANCE dll;
   HCTX ctx;
+  AXIS *pressure;
   void end() {
     WTClose(ctx);
     FreeLibrary(dll);
   }
   HINSTANCE init() {
+    pressure = NULL;
     ctx = NULL;
     dll = LoadLibrary(TEXT("wintab32.dll"));
     if (dll == NULL) {
@@ -64,7 +68,13 @@ public:
     this->WTQueuePacketsEx = (typeWTQueuePacketsEx)GetProcAddress(dll, "WTQueuePacketsEx");
     return dll;
   }
+  BOOL getPressureMinMax(AXIS *axis) {
+    if (dll == NULL && init() == NULL) return FALSE;
+    if (WTInfoW(WTI_DEVICES, DVC_NPRESSURE, axis) == 0) return FALSE;
+    return TRUE;
+  }
   HCTX startMouseMode(HWND hwnd) {
+    if (dll != NULL || ctx != NULL) end();
     if (init() == NULL) return NULL;
     LOGCONTEXTW lcMine;
     if (WTInfoW(WTI_DEFSYSCTX, 0, &lcMine) == 0) return NULL;
@@ -78,6 +88,9 @@ public:
     lcMine.lcOutExtX = GetSystemMetrics(SM_CXSCREEN);
     lcMine.lcOutExtY = -GetSystemMetrics(SM_CYSCREEN);
     ctx = WTOpenW(hwnd, &lcMine, TRUE);
+    if (getPressureMinMax(&pressureData)) {
+      pressure = &pressureData;
+    }
     return ctx;
   }
   BOOL getLastPacket(PACKET &pkt) {
@@ -89,17 +102,18 @@ public:
     if (!WTPacket(ctx, newest, &pkt)) return FALSE;
     return TRUE;
   }
-};
+} wintab32;
 
 class DCBuffer {
 public:
   HDC dc;
-  HBITMAP bmp;
   void init(HWND hwnd, int w = C_SCWIDTH, int h = C_SCHEIGHT) {
+    HBITMAP bmp;
     HDC hdc = GetDC(hwnd);
     dc = CreateCompatibleDC(hdc);
     bmp = CreateCompatibleBitmap(hdc, w, h);
     SelectObject(dc, bmp);
+    DeleteObject(bmp);
     cls();
     ReleaseDC(hwnd, hdc);
   }
@@ -108,7 +122,6 @@ public:
     gpctx.Clear(C_BGCOLOR);
   }
   void end() {
-    DeleteObject(bmp);
     DeleteDC(dc);
   }
 };
@@ -121,19 +134,23 @@ public:
   void init() {
     drawing = FALSE;
     x = y = oldx = oldy = 0;
-    penmax = 10;
-    presmax = 300;
+    if (wintab32.pressure) {
+      presmax = wintab32.pressure->axMax / 3;
+      penmax = presmax / 30;
+    } else {
+      presmax = 300;
+      penmax = presmax / 30;
+    }
   }
 };
 
-class Cursor {
+static class Cursor {
 private:
   void drawBMP(HWND hwnd, char *ptr, int w, int h, UINT penmax) {
     DCBuffer dcb;
     dcb.init(hwnd, w, h);
     Graphics gpctx(dcb.dc);
-    Pen pen2(C_FGCOLOR, 1);
-//    pen2.SetDashStyle(DashStyleDot);
+    Pen pen2(Color(255, 0, 0, 0), 1);
     gpctx.DrawEllipse(&pen2,
       (INT)((w / 2) - (penmax / 2)),
       (INT)((h / 2) - (penmax / 2)),
@@ -143,7 +160,7 @@ private:
     gpctx.DrawLine(&pen2, 0, h / 2, w, h / 2);
     for (int y = 0; y < h; y++) {
       for (int x = 0; x < w;) {
-        #define pixel (GetPixel(dcb.dc, x++, y) == RGB(0, 0, 0))
+        #define pixel (GetPixel(dcb.dc, x++, y) != RGB(255, 255, 255))
         *ptr = pixel << 7 | pixel << 6 | pixel << 5 | pixel << 4 |
                pixel << 3 | pixel << 2 | pixel << 1 | pixel << 0;
         ptr++;
@@ -176,25 +193,24 @@ public:
     DestroyCursor(old);
     return 0;
   }
-};
+} cursor;
 
 LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   static DrawParams dwpa;
-  static Cursor cursor;
   // GDI+
   static DCBuffer dcb1;
   // Wintab
-  static Wintab32 wt;
+  Wintab32 &wt = wintab32;
   switch (msg) {
   case WM_CREATE: {
-    // x, y
-    dwpa.init();
     // load wintab32.dll and open context
     wt.startMouseMode(hwnd);
     #ifdef dev
     wsprintf(ss, TEXT("fulldraw - %d, %d"), wt.dll, wt.ctx);
     SetWindowText(hwnd, ss);
     #endif
+    // x, y
+    dwpa.init();
     // ready bitmap buffer
     dcb1.init(hwnd);
     // cursor
@@ -215,7 +231,6 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     BOOL eraser = FALSE;
     UINT pensize = 1;
     UINT pressure = 100;
-    UINT penmin = 0;
     UINT &penmax = dwpa.penmax;
     UINT &presmax = dwpa.presmax;
     // init
@@ -235,11 +250,12 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       PACKET pkt;
       if (wt.getLastPacket(pkt)) {
         pressure = pkt.pkNormalPressure;
+        if (pressure > presmax) pressure = presmax;
         if (pkt.pkCursor == 2) eraser = TRUE;
         #ifdef dev
-        touf("%d, %d, %d, %d, %d, %d",
+        touf("%d, %d, %d, %d, %d, gdi:%d, %d, %d",
           pkt.pkX, pkt.pkY, pkt.pkNormalPressure, pkt.pkCursor, pensize,
-          GetGuiResources(GetCurrentProcess(), GR_GDIOBJECTS));
+          GetGuiResources(GetCurrentProcess(), GR_GDIOBJECTS), penmax, presmax);
         #endif
       }
     }
@@ -331,25 +347,33 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     switch (wp) {
     case VK_ESCAPE: PostMessage(hwnd, WM_COMMAND, 0xDEAD, 0); return 0;
     case VK_DELETE: PostMessage(hwnd, WM_COMMAND, 0x000C, 0); return 0;
+    case 65: // a
     case 37: { // left
-      if (dwpa.presmax-- <= 1) {
-        dwpa.presmax = 1;
+      UINT min = 0;
+      dwpa.presmax -= 5;
+      if (dwpa.presmax < min) {
+        dwpa.presmax = min;
       }
       return 0;
     }
+    case 68: // d
     case 39: { // right
-      if (dwpa.presmax++ >= 1023) {
-        dwpa.presmax = 1023;
+      UINT max = wt.pressure ? wt.pressure->axMax : 1023;
+      dwpa.presmax += 5;
+      if (dwpa.presmax > max) {
+        dwpa.presmax = max;
       }
       return 0;
     }
+    case 83: // s
     case 40: { // down
       if (dwpa.penmax > 1) dwpa.penmax--;
       cursor.setCursor(hwnd, dwpa.penmax);
       return 0;
     }
+    case 87: // w
     case 38: { // up
-      if (dwpa.penmax < 50) dwpa.penmax++;
+      if (dwpa.penmax < 63) dwpa.penmax++;
       cursor.setCursor(hwnd, dwpa.penmax);
       return 0;
     }
