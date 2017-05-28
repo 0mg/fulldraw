@@ -118,7 +118,7 @@ public:
 class DCBuffer {
 public:
   HDC dc;
-  void init(HWND hwnd, int w = C_SCWIDTH, int h = C_SCHEIGHT) {
+  void init(HWND hwnd, INT w = C_SCWIDTH, INT h = C_SCHEIGHT) {
     HBITMAP bmp;
     HDC hdc = GetDC(hwnd);
     dc = CreateCompatibleDC(hdc);
@@ -128,9 +128,9 @@ public:
     cls();
     ReleaseDC(hwnd, hdc);
   }
-  void cls() {
+  void cls(Color color = C_BGCOLOR) {
     Graphics gpctx(dc);
-    gpctx.Clear(C_BGCOLOR);
+    gpctx.Clear(color);
   }
   void end() {
     DeleteDC(dc);
@@ -183,12 +183,13 @@ public:
 
 static class Cursor {
 private:
-  void drawBMP(HWND hwnd, BYTE *ptr, int w, int h, DrawParams &dwpa) {
+  void drawBMP(HWND hwnd, BYTE *ptr, INT w, INT h, DrawParams &dwpa) {
     INT penmax = dwpa.penmax;
     INT presmax = dwpa.presmax;
     // DC
     DCBuffer dcb;
     dcb.init(hwnd, w, h);
+    dcb.cls(Color(255, 255, 255, 255));
     Graphics gpctx(dcb.dc);
     Pen pen2(Color(255, 0, 0, 0), 1);
     // penmax circle
@@ -200,10 +201,10 @@ private:
     gpctx.DrawLine(&pen2, w / 2, (h - length) / 2, w / 2, (h + length) / 2);
     gpctx.DrawLine(&pen2, (w -length) / 2, h / 2, (w + length) / 2, h / 2);
     // convert DC to bits
-    for (int y = 0; y < h; y++) {
-      for (int x = 0; x < w;) {
+    for (INT y = 0; y < h; y++) {
+      for (INT x = 0; x < w;) {
         *ptr = 0;
-        for (int i = 7; i >= 0; i--) {
+        for (INT i = 7; i >= 0; i--) {
           *ptr |= (GetPixel(dcb.dc, x++, y) != RGB(255, 255, 255)) << i;
         }
         ptr++;
@@ -212,14 +213,14 @@ private:
     dcb.end();
   }
   HCURSOR create(HWND hwnd, DrawParams &dwpa) {
-    #define ONE_BYTE 8
-    #define w (ONE_BYTE * 8)
+    #define A_BYTE 8
+    #define w (A_BYTE * 8)
     #define h w
-    int x = w / 2, y = h / 2;
-    BYTE and[(w / ONE_BYTE) * h];
-    BYTE xor[(w / ONE_BYTE) * h];
+    INT x = w / 2, y = h / 2;
+    BYTE and[(w / A_BYTE) * h];
+    BYTE xor[(w / A_BYTE) * h];
     drawBMP(hwnd, xor, w, h, dwpa);
-    for (int i = 0; i < sizeof(and); i++) {
+    for (INT i = 0; i < sizeof(and); i++) {
       and[i] = 0xff;
     }
     return CreateCursor(GetModuleHandle(NULL), x, y, w, h, and, xor);
@@ -316,7 +317,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         pen2.SetWidth(10);
       }
       HDC odc = GetDC(hwnd);
-      for (UINT i = 0; i <= 1; i++) {
+      for (INT i = 0; i <= 1; i++) {
         Graphics gpctx(i ? dcb1.dc : odc);
         gpctx.SetSmoothingMode(SmoothingModeAntiAlias);
         gpctx.DrawLine(&pen2, oldx, oldy, x, y);
