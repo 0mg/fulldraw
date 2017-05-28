@@ -332,9 +332,11 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       SetWindowLongPtr(hwnd, GWL_EXSTYLE, WS_EX_LEFT);
       SetWindowPos(hwnd, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
     } else {
-      #ifndef dev
       SetWindowLongPtr(hwnd, GWL_EXSTYLE, WS_EX_TOPMOST);
       SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+      #ifdef dev
+      SetWindowLongPtr(hwnd, GWL_EXSTYLE, WS_EX_LEFT);
+      SetWindowPos(hwnd, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
       #endif
     }
     #ifdef dev
