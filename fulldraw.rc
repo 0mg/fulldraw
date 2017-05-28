@@ -1,16 +1,23 @@
 #include <windows.h>
 
-APPICON ICON "fulldraw.ico"
+C_APPICON ICON "fulldraw.ico"
+
+C_CTXMENU MENU {
+  POPUP "0" {
+    MENUITEM "clear", 0x000C
+    MENUITEM "exit", 0xDEAD
+  }
+}
 
 VS_VERSION_INFO VERSIONINFO 
 FILEVERSION 1,0,0,0
 FILETYPE VFT_APP {
   BLOCK "StringFileInfo" {
     BLOCK "041103A4" {
-      VALUE "ProductVersion", "0.0.5\0"
-      VALUE "FileDescription", "drawing to fullscreen canvas\0"
-      VALUE "CompanyName", "github.com/0mg\0"
-      VALUE "ProductName", "fulldraw\0"
+      VALUE "ProductVersion", "0.1.0"
+      VALUE "FileDescription", "drawing to fullscreen canvas"
+      VALUE "CompanyName", "github.com/0mg"
+      VALUE "ProductName", "fulldraw"
     }
   }
   BLOCK "VarFileInfo" {
