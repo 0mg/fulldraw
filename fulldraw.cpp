@@ -397,7 +397,8 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     case VK_ESCAPE: PostMessage(hwnd, WM_COMMAND, 0xDEAD, 0); return 0;
     case VK_DELETE: PostMessage(hwnd, WM_COMMAND, 0x000C, 0); return 0;
     case VK_F5: {
-      MessageBox(hwnd, TEXT("MIX"), C_APPNAME, MB_OK);
+      wt.end();
+      wt.startMouseMode(hwnd);
       return 0;
     }
     case 83: // s
