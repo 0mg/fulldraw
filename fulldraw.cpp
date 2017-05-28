@@ -338,12 +338,20 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   }
   case WM_COMMAND: {
     switch (LOWORD(wp)) {
+    case 0xAB32: {
+      wt.end();
+      BOOL scs = !!wt.startMouseMode(hwnd);
+      if (!scs) {
+        MessageBox(hwnd, TEXT("failed: wintab32.dll"), C_APPNAME, MB_OK | MB_ICONSTOP);
+      }
+      return 0;
+    }
     case 0xDEAD: {
       PostMessage(hwnd, WM_CLOSE, 0, 0);
       return 0;
     }
     case 0x000C: {
-      if (MessageBox(hwnd, TEXT("clear?"), C_APPNAME, MB_OKCANCEL) == IDOK) {
+      if (MessageBox(hwnd, TEXT("clear?"), C_APPNAME, MB_OKCANCEL | MB_ICONQUESTION) == IDOK) {
         dcb1.cls();
         InvalidateRect(hwnd, NULL, FALSE);
       }
@@ -356,9 +364,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     switch (wp) {
     case VK_ESCAPE: PostMessage(hwnd, WM_COMMAND, 0xDEAD, 0); return 0;
     case VK_DELETE: PostMessage(hwnd, WM_COMMAND, 0x000C, 0); return 0;
-    case VK_F5: {
-      return 0;
-    }
+    case VK_F5: PostMessage(hwnd, WM_COMMAND, 0xAB32, 0); return 0;
     case 83: // s
     case VK_DOWN: { // down
       dwpa.penmax -= dwpa.PEN_INDE;
@@ -391,7 +397,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     return 0;
   }
   case WM_CLOSE: {
-    if (MessageBox(hwnd, TEXT("exit?"), C_APPNAME, MB_OKCANCEL) == IDOK) {
+    if (MessageBox(hwnd, TEXT("exit?"), C_APPNAME, MB_OKCANCEL | MB_ICONWARNING) == IDOK) {
       dcb1.end();
       wt.end();
       DestroyWindow(hwnd);

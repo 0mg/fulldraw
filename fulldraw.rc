@@ -4,6 +4,7 @@ C_APPICON ICON "fulldraw.ico"
 
 C_CTXMENU MENU {
   POPUP "0" {
+    MENUITEM "refresh", 0xAB32
     MENUITEM "clear", 0x000C
     MENUITEM "exit", 0xDEAD
   }
