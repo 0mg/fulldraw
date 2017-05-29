@@ -239,9 +239,6 @@ public:
     SetClassLongPtr(hwnd, GCL_HCURSOR, (LONG)cursor);
     SetCursor(cursor);
     DestroyCursor(old);
-    #ifdef dev
-    touf("%d&%d", dwpa.penmax, dwpa.presmax);
-    #endif
     return 0;
   }
 } cursor;
