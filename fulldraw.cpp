@@ -36,11 +36,19 @@ public:
   HINSTANCE dll;
   HCTX ctx;
   AXIS *pressure;
-  void end() {
-    if (ctx != NULL) WTClose(ctx);
-    FreeLibrary(dll);
+  BOOL end() {
+    if (ctx != NULL) {
+      if (WTClose(ctx)) ctx = NULL;
+      else return FALSE; // failed close
+    }
+    if (ctx == NULL && dll != NULL) {
+      if (FreeLibrary(dll)) dll = NULL;
+      else return FALSE; // failed free
+    }
+    return TRUE;
   }
   HINSTANCE init() {
+    if (!end()) return NULL;
     pressure = NULL;
     ctx = NULL;
     dll = LoadLibrary(TEXT("wintab32.dll"));
@@ -59,8 +67,7 @@ public:
       WTPacket == NULL ||
       WTQueuePacketsEx == NULL
     ) {
-      FreeLibrary(dll);
-      dll = NULL;
+      end();
     }
     return dll;
   }
@@ -70,7 +77,6 @@ public:
     return TRUE;
   }
   HCTX startMouseMode(HWND hwnd) {
-    if (dll != NULL || ctx != NULL) end();
     if (init() == NULL) return NULL;
     LOGCONTEXTW lcMine;
     if (WTInfoW(WTI_DEFSYSCTX, 0, &lcMine) == 0) return NULL;
@@ -92,6 +98,7 @@ public:
   BOOL getLastPacket(PACKET &pkt) {
     UINT FAR oldest;
     UINT FAR newest;
+    if (dll == NULL || ctx == NULL) return FALSE;
     // get que oldest and newest from all queues
     if (!WTQueuePacketsEx(ctx, &oldest, &newest)) return FALSE;
     // get newest queue and flush all queues
@@ -217,9 +224,6 @@ public:
     SetClassLongPtr(hwnd, GCL_HCURSOR, (LONG)cursor);
     SetCursor(cursor);
     DestroyCursor(old);
-    #ifdef dev
-    touf("%d&%d", dwpa.penmax, dwpa.presmax);
-    #endif
     return 0;
   }
 } cursor;
@@ -339,10 +343,10 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   case WM_COMMAND: {
     switch (LOWORD(wp)) {
     case 0xAB32: {
-      wt.end();
       BOOL scs = !!wt.startMouseMode(hwnd);
       if (!scs) {
-        MessageBox(hwnd, TEXT("failed: wintab32.dll"), C_APPNAME, MB_OK | MB_ICONSTOP);
+        MessageBox(hwnd, TEXT("failed: wintab32.dll"),
+          C_APPNAME, MB_OK | MB_ICONSTOP);
       }
       return 0;
     }
@@ -351,7 +355,8 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       return 0;
     }
     case 0x000C: {
-      if (MessageBox(hwnd, TEXT("clear?"), C_APPNAME, MB_OKCANCEL | MB_ICONQUESTION) == IDOK) {
+      if (MessageBox(hwnd, TEXT("clear?"),
+      C_APPNAME, MB_OKCANCEL | MB_ICONQUESTION) == IDOK) {
         dcb1.cls();
         InvalidateRect(hwnd, NULL, FALSE);
       }
@@ -397,7 +402,8 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     return 0;
   }
   case WM_CLOSE: {
-    if (MessageBox(hwnd, TEXT("exit?"), C_APPNAME, MB_OKCANCEL | MB_ICONWARNING) == IDOK) {
+    if (MessageBox(hwnd, TEXT("exit?"),
+    C_APPNAME, MB_OKCANCEL | MB_ICONWARNING) == IDOK) {
       dcb1.end();
       wt.end();
       DestroyWindow(hwnd);
