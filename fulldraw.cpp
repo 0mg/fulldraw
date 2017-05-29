@@ -125,7 +125,7 @@ public:
 class DCBuffer {
 public:
   HDC dc;
-  void init(HWND hwnd, INT w = C_SCWIDTH, INT h = C_SCHEIGHT) {
+  void init(HWND hwnd, int w = C_SCWIDTH, int h = C_SCHEIGHT) {
     HBITMAP bmp;
     HDC hdc = GetDC(hwnd);
     dc = CreateCompatibleDC(hdc);
@@ -148,13 +148,13 @@ class DrawParams {
 public:
   BOOL drawing;
   INT16 x, y, oldx, oldy;
-  INT penmax, presmax;
-  INT PEN_MIN;
-  INT PEN_MAX;
-  INT PEN_INDE;
-  INT PRS_MIN;
-  INT PRS_MAX;
-  INT PRS_INDE;
+  int penmax, presmax;
+  int PEN_MIN;
+  int PEN_MAX;
+  int PEN_INDE;
+  int PRS_MIN;
+  int PRS_MAX;
+  int PRS_INDE;
   void init() {
     drawing = FALSE;
     x = y = oldx = oldy = 0;
@@ -162,8 +162,8 @@ public:
     PEN_MIN = 2 * 2;
     PEN_MAX = 25 * 2;
     if (wintab32.pressure && wintab32.pressure->axMax > 0) {
-      INT PRS_DVC_MAX = wintab32.pressure->axMax;
-      INT unit = PRS_DVC_MAX >= 31 ? 31 : PRS_DVC_MAX;
+      int PRS_DVC_MAX = wintab32.pressure->axMax;
+      int unit = PRS_DVC_MAX >= 31 ? 31 : PRS_DVC_MAX;
       PRS_MAX = PRS_DVC_MAX;
       PRS_MIN = PRS_DVC_MAX / unit;
       PRS_INDE = PRS_MIN;
@@ -190,9 +190,9 @@ public:
 
 static class Cursor {
 private:
-  void drawBMP(HWND hwnd, BYTE *ptr, INT w, INT h, DrawParams &dwpa) {
-    INT penmax = dwpa.penmax;
-    INT presmax = dwpa.presmax;
+  void drawBMP(HWND hwnd, BYTE *ptr, int w, int h, DrawParams &dwpa) {
+    int penmax = dwpa.penmax;
+    int presmax = dwpa.presmax;
     // DC
     DCBuffer dcb;
     dcb.init(hwnd, w, h);
@@ -204,14 +204,14 @@ private:
       (w - penmax) / 2, (h - penmax) / 2, penmax, penmax
     );
     // presmax cross
-    INT length = w * presmax / dwpa.PRS_MAX;
+    int length = w * presmax / dwpa.PRS_MAX;
     gpctx.DrawLine(&pen2, w / 2, (h - length) / 2, w / 2, (h + length) / 2);
     gpctx.DrawLine(&pen2, (w -length) / 2, h / 2, (w + length) / 2, h / 2);
     // convert DC to bits
-    for (INT y = 0; y < h; y++) {
-      for (INT x = 0; x < w;) {
+    for (int y = 0; y < h; y++) {
+      for (int x = 0; x < w;) {
         *ptr = 0;
-        for (INT i = 7; i >= 0; i--) {
+        for (int i = 7; i >= 0; i--) {
           *ptr |= (GetPixel(dcb.dc, x++, y) != RGB(255, 255, 255)) << i;
         }
         ptr++;
@@ -223,11 +223,11 @@ private:
     #define A_BYTE 8
     #define w (A_BYTE * 8)
     #define h w
-    INT x = w / 2, y = h / 2;
+    int x = w / 2, y = h / 2;
     BYTE and[(w / A_BYTE) * h];
     BYTE xor[(w / A_BYTE) * h];
     drawBMP(hwnd, xor, w, h, dwpa);
-    for (INT i = 0; i < sizeof(and); i++) {
+    for (int i = 0; i < sizeof(and); i++) {
       and[i] = 0xff;
     }
     return CreateCursor(GetModuleHandle(NULL), x, y, w, h, and, xor);
@@ -282,8 +282,8 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     BOOL eraser = FALSE;
     UINT pensize = 1;
     UINT pressure = 100;
-    INT &penmax = dwpa.penmax;
-    INT &presmax = dwpa.presmax;
+    int &penmax = dwpa.penmax;
+    int &presmax = dwpa.presmax;
     // init
     INT16 &oldx = dwpa.oldx;
     INT16 &oldy = dwpa.oldy;
@@ -321,7 +321,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         pen2.SetWidth(10);
       }
       HDC odc = GetDC(hwnd);
-      for (INT i = 0; i <= 1; i++) {
+      for (int i = 0; i <= 1; i++) {
         Graphics gpctx(i ? dcb1.dc : odc);
         gpctx.SetSmoothingMode(SmoothingModeAntiAlias);
         gpctx.DrawLine(&pen2, oldx, oldy, x, y);
@@ -467,17 +467,14 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   return DefWindowProc(hwnd, msg, wp, lp);
 }
 
-int WINAPI WinMain(HINSTANCE hi, HINSTANCE hp, LPSTR cl, int cs){
-  MSG msg;
-  WNDCLASSEX wc;
-  HWND hwnd;
-  ULONG_PTR gdiToken;
-  GdiplusStartupInput gdiSI;
-
+int WINAPI WinMain(HINSTANCE hi, HINSTANCE hp, LPSTR cl, int cs) {
   // GDI+
-  GdiplusStartup(&gdiToken, &gdiSI, NULL);
+  ULONG_PTR token;
+  GdiplusStartupInput input;
+  GdiplusStartup(&token, &input, NULL);
 
   // Main Window: Settings
+  WNDCLASSEX wc;
   wc.cbSize = sizeof(WNDCLASSEX);
   wc.style = CS_HREDRAW | CS_VREDRAW;
   wc.lpfnWndProc = mainWndProc;
@@ -493,7 +490,7 @@ int WINAPI WinMain(HINSTANCE hi, HINSTANCE hp, LPSTR cl, int cs){
   if (RegisterClassEx(&wc) == 0) return 1;
 
   // Main Window: Create, Show
-  hwnd = CreateWindowEx(
+  HWND hwnd = CreateWindowEx(
     #ifdef dev
     WS_EX_LEFT,
     C_WINDOW_CLASS, C_APPNAME,
@@ -514,11 +511,12 @@ int WINAPI WinMain(HINSTANCE hi, HINSTANCE hp, LPSTR cl, int cs){
   if (hwnd == NULL) return 1;
 
   // main
+  MSG msg;
   while (GetMessage(&msg, NULL, 0, 0) > 0) {
     TranslateMessage(&msg);
     DispatchMessage(&msg);
   }
   // finish
-  GdiplusShutdown(gdiToken);
+  GdiplusShutdown(token);
   return msg.wParam;
 }
