@@ -1,4 +1,5 @@
 #include <windows.h>
+#include <windowsx.h>
 #include <msgpack.h>
 #include <wintab.h>
 #define PACKETDATA PK_X | PK_Y | PK_BUTTONS | PK_NORMAL_PRESSURE | PK_CURSOR
@@ -16,7 +17,7 @@ using namespace Gdiplus;
 
 void __start__() {
   // program will start from here if `gcc -nostartfiles`
-  ExitProcess(WinMain(GetModuleHandle(NULL), 0, "", 0));
+  ExitProcess(WinMain(GetModuleHandle(NULL), 0, NULL, 0));
 }
 
 static class Wintab32 {
@@ -132,14 +133,10 @@ public:
 class DrawParams {
 public:
   BOOL drawing;
-  INT16 x, y, oldx, oldy;
+  int x, y, oldx, oldy;
   int penmax, presmax;
-  int PEN_MIN;
-  int PEN_MAX;
-  int PEN_INDE;
-  int PRS_MIN;
-  int PRS_MAX;
-  int PRS_INDE;
+  int PEN_MIN, PEN_MAX, PEN_INDE;
+  int PRS_MIN, PRS_MAX, PRS_INDE;
   void init() {
     drawing = FALSE;
     x = y = oldx = oldy = 0;
@@ -205,17 +202,18 @@ private:
     dcb.end();
   }
   HCURSOR create(HWND hwnd, DrawParams &dwpa) {
-    #define A_BYTE 8
-    #define w (A_BYTE * 8)
-    #define h w
-    int x = w / 2, y = h / 2;
-    BYTE and[(w / A_BYTE) * h];
-    BYTE xor[(w / A_BYTE) * h];
-    drawBMP(hwnd, xor, w, h, dwpa);
-    for (int i = 0; i < sizeof(and); i++) {
-      and[i] = 0xff;
+    const int A_BYTE = 8;
+    const int w = A_BYTE * 8;
+    const int h = w;
+    const int sz = (w / A_BYTE) * h;
+    BYTE band[sz];
+    BYTE bxor[sz];
+    for (int i = 0; i < sz; i++) {
+      band[i] = 0xff;
     }
-    return CreateCursor(GetModuleHandle(NULL), x, y, w, h, and, xor);
+    drawBMP(hwnd, bxor, w, h, dwpa);
+    int x = w / 2, y = h / 2;
+    return CreateCursor(GetModuleHandle(NULL), x, y, w, h, band, bxor);
   }
 public:
   BOOL setCursor(HWND hwnd, DrawParams &dwpa) {
@@ -258,19 +256,16 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   }
   case WM_MOUSEMOVE: {
     BOOL eraser = FALSE;
-    UINT pensize = 1;
-    UINT pressure = 100;
-    int &penmax = dwpa.penmax;
-    int &presmax = dwpa.presmax;
+    int pensize = 1;
+    int pressure = 100;
+    int penmax = dwpa.penmax;
+    int presmax = dwpa.presmax;
     // init
-    INT16 &oldx = dwpa.oldx;
-    INT16 &oldy = dwpa.oldy;
-    INT16 &x = dwpa.x;
-    INT16 &y = dwpa.y;
+    int &oldx = dwpa.oldx, &oldy = dwpa.oldy, &x = dwpa.x, &y = dwpa.y;
     oldx = x;
     oldy = y;
-    x = LOWORD(lp);
-    y = HIWORD(lp);
+    x = GET_X_LPARAM(lp);
+    y = GET_Y_LPARAM(lp);
     // wintab
     if (wt.ctx != NULL) {
       PACKET pkt;
@@ -317,14 +312,11 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     return 0;
   }
   case WM_LBUTTONDOWN: {
-    INT16 &oldx = dwpa.oldx;
-    INT16 &oldy = dwpa.oldy;
-    INT16 &x = dwpa.x;
-    INT16 &y = dwpa.y;
+    int &oldx = dwpa.oldx, &oldy = dwpa.oldy, &x = dwpa.x, &y = dwpa.y;
     oldx = x;
     oldy = y;
-    x = LOWORD(lp);
-    y = HIWORD(lp);
+    x = GET_X_LPARAM(lp);
+    y = GET_Y_LPARAM(lp);
     dwpa.drawing = TRUE;
     SetCapture(hwnd);
     return 0;
@@ -334,8 +326,8 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     HMENU menu = LoadMenu(GetModuleHandle(NULL), TEXT("C_CTXMENU"));
     HMENU popup = GetSubMenu(menu, 0);
     POINT point;
-    point.x = LOWORD(lp);
-    point.y = HIWORD(lp);
+    point.x = GET_X_LPARAM(lp);
+    point.y = GET_Y_LPARAM(lp);
     ClientToScreen(hwnd, &point);
     TrackPopupMenuEx(popup, 0, point.x, point.y, hwnd, NULL);
     return 0;
@@ -343,7 +335,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   case WM_COMMAND: {
     switch (LOWORD(wp)) {
     case 0xAB32: {
-      BOOL scs = !!wt.startMouseMode(hwnd);
+      BOOL scs = wt.startMouseMode(hwnd) != NULL;
       if (!scs) {
         MessageBox(hwnd, TEXT("failed: wintab32.dll"),
           C_APPNAME, MB_OK | MB_ICONSTOP);
