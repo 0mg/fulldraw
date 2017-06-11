@@ -31,7 +31,7 @@ void tou(LPTSTR str, HDC hdc, HWND hwnd) {
   TextOut(hdc, 0, 0, str, lstrlen(str));
   InvalidateRect(hwnd, NULL, FALSE);
 }
-#define touf(f,...)  wsprintf(ss,TEXT(f),__VA_ARGS__),tou(ss,ddcc,hwnd)
+#define touf(f,...)  wsprintf(ss,TEXT(f),__VA_ARGS__),tou(ss,ddcc,chwnd)
 #define mboxf(f,...) wsprintf(ss,TEXT(f),__VA_ARGS__),MessageBox(NULL,ss,ss,MB_OK)
 #endif
 
@@ -241,6 +241,41 @@ public:
   }
 } cursor;
 
+#ifdef dev
+HWND chwnd;
+LRESULT CALLBACK chproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
+  static DCBuffer dgdc1;
+  switch (msg) {
+  case WM_CREATE: {
+    dgdc1.init(hwnd);
+    ddcc = dgdc1.dc;
+    return 0;
+  }
+  case WM_ERASEBKGND: return 1;
+  case WM_PAINT: {
+    PAINTSTRUCT ps;
+    HDC odc = BeginPaint(hwnd, &ps);
+    BitBlt(odc, 0, 0, C_SCWIDTH, C_SCHEIGHT, dgdc1.dc, 0, 0, SRCCOPY);
+    EndPaint(hwnd, &ps);
+    return 0;
+  }
+  }
+  return DefWindowProc(hwnd, msg, wp, lp);
+}
+void createDebugWindow(HWND parent) {
+  WNDCLASS wc;
+  SecureZeroMemory(&wc, sizeof(WNDCLASS));
+  wc.lpfnWndProc = chproc;
+  wc.lpszClassName = TEXT("fulldraw_debug_winclass");
+  if (RegisterClass(&wc) == 0) {
+    MessageBox(NULL, TEXT("failed: child win class"), NULL, MB_OK);
+    return;
+  }
+  chwnd = CreateWindow(wc.lpszClassName, C_APPNAME, WS_VISIBLE,
+    0, 600, C_SCWIDTH, 70, parent, NULL, NULL, NULL);
+}
+#endif
+
 LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   static DrawParams dwpa;
   // GDI+
@@ -251,19 +286,17 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   case WM_CREATE: {
     // load wintab32.dll and open context
     wt.startMouseMode(hwnd);
-    #ifdef dev
-    wsprintf(ss, TEXT("fulldraw - %d, %d"), wt.dll, wt.ctx);
-    SetWindowText(hwnd, ss);
-    #endif
     // x, y
     dwpa.init();
     // ready bitmap buffer
     dcb1.init(hwnd);
-    #ifdef dev
-    ddcc = dcb1.dc;
-    #endif
     // cursor
     cursor.setCursor(hwnd, dwpa);
+    #ifdef dev
+    createDebugWindow(hwnd);
+    wsprintf(ss, TEXT("fulldraw - %d, %d"), wt.dll, wt.ctx);
+    SetWindowText(chwnd, ss);
+    #endif
     return 0;
   }
   case WM_ERASEBKGND: {
@@ -289,7 +322,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     x = GET_X_LPARAM(lp);
     y = GET_Y_LPARAM(lp);
     #ifdef dev
-    touf("%d", GetGuiResources(GetCurrentProcess(), GR_GDIOBJECTS));
+    touf("gdi:%d", GetGuiResources(GetCurrentProcess(), GR_GDIOBJECTS));
     #endif
     // wintab
     if (wt.ctx != NULL) {
@@ -376,7 +409,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       #ifdef dev
       wsprintf(ss, TEXT("fulldraw - %d, %d, %d"),
         wt.dll, wt.ctx, GetTickCount());
-      SetWindowText(hwnd, ss);
+      SetWindowText(chwnd, ss);
       #endif
       if (!scs) {
         MessageBox(hwnd, TEXT("failed: wintab32.dll"),
