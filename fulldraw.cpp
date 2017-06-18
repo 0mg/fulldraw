@@ -336,6 +336,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     switch (LOWORD(wp)) {
     case 0xAB32: {
       BOOL scs = wt.startMouseMode(hwnd) != NULL;
+      SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOSIZE);
       if (!scs) {
         MessageBox(hwnd, TEXT("failed: wintab32.dll"),
           C_APPNAME, MB_OK | MB_ICONSTOP);
