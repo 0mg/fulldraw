@@ -4,21 +4,18 @@ C_APPICON ICON "fulldraw.ico"
 
 C_CTXMENU MENU {
   POPUP "0" {
-    MENUITEM "refresh", 0xAB32
-    MENUITEM "clear", 0x000C
-    MENUITEM "minimize", 0x2130
-    MENUITEM "exit", 0xDEAD
+    MENUITEM "refresh\tF5", 0xAB32
+    MENUITEM "clear\tDel", 0x000C
+    MENUITEM "minimize\tCtrl+M", 0x2130
+    MENUITEM "exit\tEsc", 0xDEAD
   }
 }
 
 VS_VERSION_INFO VERSIONINFO 
-FILEVERSION 1,0,0,0
+FILEVERSION 0,1,3,0
 FILETYPE VFT_APP {
   BLOCK "StringFileInfo" {
     BLOCK "041103A4" {
-      VALUE "ProductVersion", "0.1.2"
-      VALUE "FileDescription", "drawing to fullscreen canvas"
-      VALUE "CompanyName", "github.com/0mg"
       VALUE "ProductName", "fulldraw"
     }
   }
