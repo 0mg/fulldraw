@@ -354,6 +354,10 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       }
       return 0;
     }
+    case 0x2130: {
+      CloseWindow(hwnd);
+      return 0;
+    }
     }
     return 0;
   }
@@ -362,6 +366,14 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     case VK_ESCAPE: PostMessage(hwnd, WM_COMMAND, 0xDEAD, 0); return 0;
     case VK_DELETE: PostMessage(hwnd, WM_COMMAND, 0x000C, 0); return 0;
     case VK_F5: PostMessage(hwnd, WM_COMMAND, 0xAB32, 0); return 0;
+    case 77: { //m
+      if (GetAsyncKeyState(VK_CONTROL)) {
+        PostMessage(hwnd, WM_COMMAND, 0x2130, 0);
+        return 0;
+      } else {
+        break;
+      }
+    }
     case 83: // s
     case VK_DOWN: { // down
       dwpa.penmax -= dwpa.PEN_INDE;
