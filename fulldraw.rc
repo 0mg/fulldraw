@@ -16,7 +16,7 @@ FILEVERSION 0,1,3,0
 FILETYPE VFT_APP {
   BLOCK "StringFileInfo" {
     BLOCK "041103A4" {
-      VALUE "ProductName", "fulldraw"
+      VALUE "FileDescription", "fulldraw"
     }
   }
   BLOCK "VarFileInfo" {
