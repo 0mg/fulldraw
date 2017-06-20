@@ -1,0 +1,4 @@
+#define C_CMD_REFRESH 0xAB32
+#define C_CMD_CLEAR 0x000C
+#define C_CMD_MINIMIZE 0x2130
+#define C_CMD_EXIT 0xDEAD

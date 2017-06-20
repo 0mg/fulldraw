@@ -1,13 +1,14 @@
 #include <windows.h>
+#include "fulldraw.h"
 
 C_APPICON ICON "fulldraw.ico"
 
 C_CTXMENU MENU {
   POPUP "0" {
-    MENUITEM "refresh\tF5", 0xAB32
-    MENUITEM "clear\tDel", 0x000C
-    MENUITEM "minimize\tCtrl+M", 0x2130
-    MENUITEM "exit\tEsc", 0xDEAD
+    MENUITEM "refresh\tF5", C_CMD_REFRESH
+    MENUITEM "clear\tDel", C_CMD_CLEAR
+    MENUITEM "minimize\tCtrl+M", C_CMD_MINIMIZE
+    MENUITEM "exit\tEsc", C_CMD_EXIT
   }
 }
 
