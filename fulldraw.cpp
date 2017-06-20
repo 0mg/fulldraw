@@ -8,6 +8,8 @@
 #include <gdiplus.h>
 using namespace Gdiplus;
 
+#include "fulldraw.h"
+
 #define C_APPNAME TEXT("fulldraw")
 #define C_WINDOW_CLASS TEXT("fulldraw_window_class")
 #define C_SCWIDTH GetSystemMetrics(SM_CXSCREEN)
@@ -334,7 +336,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   }
   case WM_COMMAND: {
     switch (LOWORD(wp)) {
-    case 0xAB32: {
+    case C_CMD_REFRESH: {
       BOOL scs = wt.startMouseMode(hwnd) != NULL;
       SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOSIZE);
       if (!scs) {
@@ -343,11 +345,11 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       }
       return 0;
     }
-    case 0xDEAD: {
+    case C_CMD_EXIT: {
       PostMessage(hwnd, WM_CLOSE, 0, 0);
       return 0;
     }
-    case 0x000C: {
+    case C_CMD_CLEAR: {
       if (MessageBox(hwnd, TEXT("clear?"),
       C_APPNAME, MB_OKCANCEL | MB_ICONQUESTION) == IDOK) {
         dcb1.cls();
@@ -355,7 +357,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       }
       return 0;
     }
-    case 0x2130: {
+    case C_CMD_MINIMIZE: {
       CloseWindow(hwnd);
       return 0;
     }
@@ -364,12 +366,12 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   }
   case WM_KEYDOWN: {
     switch (wp) {
-    case VK_ESCAPE: PostMessage(hwnd, WM_COMMAND, 0xDEAD, 0); return 0;
-    case VK_DELETE: PostMessage(hwnd, WM_COMMAND, 0x000C, 0); return 0;
-    case VK_F5: PostMessage(hwnd, WM_COMMAND, 0xAB32, 0); return 0;
+    case VK_ESCAPE: PostMessage(hwnd, WM_COMMAND, C_CMD_EXIT, 0); return 0;
+    case VK_DELETE: PostMessage(hwnd, WM_COMMAND, C_CMD_CLEAR, 0); return 0;
+    case VK_F5: PostMessage(hwnd, WM_COMMAND, C_CMD_REFRESH, 0); return 0;
     case 77: { //m
       if (GetAsyncKeyState(VK_CONTROL)) {
-        PostMessage(hwnd, WM_COMMAND, 0x2130, 0);
+        PostMessage(hwnd, WM_COMMAND, C_CMD_MINIMIZE, 0);
         return 0;
       } else {
         break;
