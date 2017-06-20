@@ -46,11 +46,13 @@ public:
   typedef BOOL (API *typeWTClose)(HCTX);
   typedef BOOL (API *typeWTPacket)(HCTX, UINT, LPVOID);
   typedef BOOL (API *typeWTQueuePacketsEx)(HCTX, UINT FAR *, UINT FAR *);
+  typedef int (API *typeWTPacketsGet)(HCTX, int, LPVOID);
   typeWTInfoW WTInfoW;
   typeWTOpenW WTOpenW;
   typeWTClose WTClose;
   typeWTPacket WTPacket;
   typeWTQueuePacketsEx WTQueuePacketsEx;
+  typeWTPacketsGet WTPacketsGet;
   HINSTANCE dll;
   HCTX ctx;
   AXIS *pressure;
@@ -78,12 +80,14 @@ public:
     WTClose = (typeWTClose)GetProcAddress(dll, "WTClose");
     WTPacket = (typeWTPacket)GetProcAddress(dll, "WTPacket");
     WTQueuePacketsEx = (typeWTQueuePacketsEx)GetProcAddress(dll, "WTQueuePacketsEx");
+    WTPacketsGet = (typeWTPacketsGet)GetProcAddress(dll, "WTPacketsGet");
     if (
       WTInfoW == NULL ||
       WTOpenW == NULL ||
       WTClose == NULL ||
       WTPacket == NULL ||
-      WTQueuePacketsEx == NULL
+      WTQueuePacketsEx == NULL ||
+      WTPacketsGet == NULL
     ) {
       end();
     }
@@ -113,15 +117,23 @@ public:
     }
     return ctx;
   }
-  BOOL getLastPacket(PACKET &pkt) {
+  int getLastPacket(PACKET &pkt) {
     UINT FAR oldest;
     UINT FAR newest;
-    if (dll == NULL || ctx == NULL) return FALSE;
+    if (dll == NULL || ctx == NULL) return 1;
     // get que oldest and newest from all queues
-    if (!WTQueuePacketsEx(ctx, &oldest, &newest)) return FALSE;
+    if (!WTQueuePacketsEx(ctx, &oldest, &newest)) return 2;
     // get newest queue and flush all queues
-    if (!WTPacket(ctx, newest, &pkt)) return FALSE;
-    return TRUE;
+    if (!WTPacket(ctx, newest, &pkt)) return 3;
+    return 0;
+  }
+  int getLastPacket2(PACKET &pkt) {
+    const int size = 1;
+    PACKET packets[size];
+    if (dll == NULL || ctx == NULL) return 1;
+    if (!WTPacketsGet(ctx, size, packets)) return 2;
+    pkt = packets[size - 1];
+    return 0;
   }
 } wintab32;
 
@@ -329,7 +341,8 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     // wintab
     if (wt.ctx != NULL) {
       PACKET pkt;
-      if (wt.getLastPacket(pkt)) {
+      int stat = wt.getLastPacket2(pkt);
+      if (stat == 0) {
         pressure = pkt.pkNormalPressure;
         if (pkt.pkCursor == 2) eraser = TRUE;
         #ifdef dev
