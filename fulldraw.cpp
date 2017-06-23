@@ -122,17 +122,15 @@ public:
     UINT FAR newest;
     if (dll == NULL || ctx == NULL) return 1;
     // get que oldest and newest from all queues
-    if (!WTQueuePacketsEx(ctx, &oldest, &newest)) return 2;
+    if (!WTQueuePacketsEx(ctx, &oldest, &newest)) {
+      WTPacketsGet(ctx, 1, NULL); // flush all queue
+      return 2;
+    }
     // get newest queue and flush all queues
-    if (!WTPacket(ctx, newest, &pkt)) return 3;
-    return 0;
-  }
-  int getLastPacket2(PACKET &pkt) {
-    const int size = 1;
-    PACKET packets[size];
-    if (dll == NULL || ctx == NULL) return 1;
-    if (!WTPacketsGet(ctx, size, packets)) return 2;
-    pkt = packets[size - 1];
+    if (!WTPacket(ctx, newest, &pkt)) {
+      WTPacketsGet(ctx, 1, NULL); // flush all queue
+      return 3;
+    }
     return 0;
   }
 } wintab32;
@@ -341,7 +339,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     // wintab
     if (wt.ctx != NULL) {
       PACKET pkt;
-      int stat = wt.getLastPacket2(pkt);
+      int stat = wt.getLastPacket(pkt);
       if (stat == 0) {
         pressure = pkt.pkNormalPressure;
         if (pkt.pkCursor == 2) eraser = TRUE;
