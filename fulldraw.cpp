@@ -2,8 +2,8 @@
 #include <windowsx.h>
 #include <msgpack.h>
 #include <wintab.h>
-#define PACKETDATA PK_X | PK_Y | PK_BUTTONS | PK_NORMAL_PRESSURE | PK_CURSOR
-#define PACKETMODE PK_BUTTONS
+#define PACKETDATA PK_NORMAL_PRESSURE | PK_STATUS
+#define PACKETMODE 0
 #include <pktdef.h>
 #include <gdiplus.h>
 using namespace Gdiplus;
@@ -342,10 +342,10 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       int stat = wt.getLastPacket(pkt);
       if (stat == 0) {
         pressure = pkt.pkNormalPressure;
-        if (pkt.pkCursor == 2) eraser = TRUE;
+        if (pkt.pkStatus & TPS_INVERT) eraser = TRUE;
         #ifdef dev
-        touf("%d, %d, %d, %d, %d, gdi:%d, %d, %d",
-          pkt.pkX, pkt.pkY, pkt.pkNormalPressure, pkt.pkCursor, pensize,
+        touf("[%d] prs:%d, st:%d, gdi:%d, penmax:%d, presmax:%d",
+          GetTickCount(), pkt.pkNormalPressure, pkt.pkStatus,
           GetGuiResources(GetCurrentProcess(), GR_GDIOBJECTS), penmax, presmax);
         #endif
       }
