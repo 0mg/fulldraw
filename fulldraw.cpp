@@ -16,6 +16,7 @@ using namespace Gdiplus;
 #define C_SCHEIGHT GetSystemMetrics(SM_CYSCREEN)
 #define C_FGCOLOR Color(255, 0, 0, 0)
 #define C_BGCOLOR Color(255, 255, 255, 255)
+#define C_PKT_QUEUE_SIZE 1
 
 void __start__() {
   // program will start from here if `gcc -nostartfiles`
@@ -23,6 +24,7 @@ void __start__() {
 }
 
 #ifdef dev
+HWND chwnd;
 LONG nn;
 TCHAR ss[255];
 HDC ddcc;
@@ -47,12 +49,16 @@ public:
   typedef BOOL (API *typeWTPacket)(HCTX, UINT, LPVOID);
   typedef BOOL (API *typeWTQueuePacketsEx)(HCTX, UINT FAR *, UINT FAR *);
   typedef int (API *typeWTPacketsGet)(HCTX, int, LPVOID);
+  typedef int (API *typeWTQueueSizeGet)(HCTX);
+  typedef BOOL (API *typeWTQueueSizeSet)(HCTX, int);
   typeWTInfoW WTInfoW;
   typeWTOpenW WTOpenW;
   typeWTClose WTClose;
   typeWTPacket WTPacket;
   typeWTQueuePacketsEx WTQueuePacketsEx;
   typeWTPacketsGet WTPacketsGet;
+  typeWTQueueSizeGet WTQueueSizeGet;
+  typeWTQueueSizeSet WTQueueSizeSet;
   HINSTANCE dll;
   HCTX ctx;
   AXIS *pressure;
@@ -81,13 +87,17 @@ public:
     WTPacket = (typeWTPacket)GetProcAddress(dll, "WTPacket");
     WTQueuePacketsEx = (typeWTQueuePacketsEx)GetProcAddress(dll, "WTQueuePacketsEx");
     WTPacketsGet = (typeWTPacketsGet)GetProcAddress(dll, "WTPacketsGet");
+    WTQueueSizeGet = (typeWTQueueSizeGet)GetProcAddress(dll, "WTQueueSizeGet");
+    WTQueueSizeSet = (typeWTQueueSizeSet)GetProcAddress(dll, "WTQueueSizeSet");
     if (
       WTInfoW == NULL ||
       WTOpenW == NULL ||
       WTClose == NULL ||
       WTPacket == NULL ||
       WTQueuePacketsEx == NULL ||
-      WTPacketsGet == NULL
+      WTPacketsGet == NULL ||
+      WTQueueSizeGet == NULL ||
+      WTQueueSizeSet == NULL
     ) {
       end();
     }
@@ -115,9 +125,18 @@ public:
     if (getPressureMinMax(&pressureData)) {
       pressure = &pressureData;
     }
+    WTQueueSizeSet(ctx, C_PKT_QUEUE_SIZE);
     return ctx;
   }
   int getLastPacket(PACKET &pkt) {
+    int stat;
+    stat = getLastPacketV2(pkt);
+    if (stat == 0) return 0;
+    stat = getLastPacketV1(pkt);
+    if (stat == 0) return 0;
+    return stat;
+  }
+  int getLastPacketV1(PACKET &pkt) {
     UINT FAR oldest;
     UINT FAR newest;
     if (dll == NULL || ctx == NULL) return 1;
@@ -132,6 +151,26 @@ public:
       return 3;
     }
     return 0;
+  }
+  int getLastPacketV2(PACKET &pkt) {
+    if (dll == NULL || ctx == NULL) return 1;
+    // heap get
+    HANDLE heap = GetProcessHeap();
+    if (heap == NULL) return 2;
+    // heap alloc
+    int queueSize = WTQueueSizeGet(ctx);
+    PACKET *packets = (PACKET*)HeapAlloc(heap, 0, sizeof(PACKET) * queueSize);
+    if (packets == NULL) return 3;
+    // heap write
+    int count = WTPacketsGet(ctx, queueSize, packets);
+    if (count > 0) {
+      pkt = packets[count - 1];
+      HeapFree(heap, 0, packets);
+      return 0;
+    } else {
+      HeapFree(heap, 0, packets);
+      return 4;
+    }
   }
 } wintab32;
 
@@ -254,7 +293,6 @@ public:
 } cursor;
 
 #ifdef dev
-HWND chwnd;
 LRESULT CALLBACK chproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   static DCBuffer dgdc1;
   switch (msg) {
