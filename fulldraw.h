@@ -2,3 +2,4 @@
 #define C_CMD_CLEAR 0x000C
 #define C_CMD_MINIMIZE 0x2130
 #define C_CMD_EXIT 0xDEAD
+#define C_CMD_DRAW 0xD7A3
