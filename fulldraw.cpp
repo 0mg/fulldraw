@@ -2,8 +2,8 @@
 #include <windowsx.h>
 #include <msgpack.h>
 #include <wintab.h>
-#define PACKETDATA PK_X | PK_Y | PK_BUTTONS | PK_NORMAL_PRESSURE | PK_CURSOR
-#define PACKETMODE PK_BUTTONS
+#define PACKETDATA PK_X | PK_Y | PK_NORMAL_PRESSURE | PK_STATUS
+#define PACKETMODE 0
 #include <pktdef.h>
 #include <gdiplus.h>
 using namespace Gdiplus;
@@ -16,6 +16,7 @@ using namespace Gdiplus;
 #define C_SCHEIGHT GetSystemMetrics(SM_CYSCREEN)
 #define C_FGCOLOR Color(255, 0, 0, 0)
 #define C_BGCOLOR Color(255, 255, 255, 255)
+#define C_QUEUE_SIZE 0
 
 void __start__() {
   // program will start from here if `gcc -nostartfiles`
@@ -31,14 +32,22 @@ public:
   typedef BOOL (API *typeWTClose)(HCTX);
   typedef BOOL (API *typeWTPacket)(HCTX, UINT, LPVOID);
   typedef BOOL (API *typeWTQueuePacketsEx)(HCTX, UINT FAR *, UINT FAR *);
+  typedef int (API *typeWTPacketsGet)(HCTX, int, LPVOID);
+  typedef int (API *typeWTQueueSizeGet)(HCTX);
+  typedef BOOL (API *typeWTQueueSizeSet)(HCTX, int);
   typeWTInfoW WTInfoW;
   typeWTOpenW WTOpenW;
   typeWTClose WTClose;
   typeWTPacket WTPacket;
   typeWTQueuePacketsEx WTQueuePacketsEx;
+  typeWTPacketsGet WTPacketsGet;
+  typeWTQueueSizeGet WTQueueSizeGet;
+  typeWTQueueSizeSet WTQueueSizeSet;
   HINSTANCE dll;
   HCTX ctx;
   AXIS *pressure;
+  HANDLE heap;
+  PACKET *packets;
   BOOL end() {
     if (ctx != NULL) {
       if (WTClose(ctx)) ctx = NULL;
@@ -52,6 +61,7 @@ public:
   }
   HINSTANCE init() {
     if (!end()) return NULL;
+    packets = NULL;
     pressure = NULL;
     ctx = NULL;
     dll = LoadLibrary(TEXT("wintab32.dll"));
@@ -63,19 +73,25 @@ public:
     WTClose = (typeWTClose)GetProcAddress(dll, "WTClose");
     WTPacket = (typeWTPacket)GetProcAddress(dll, "WTPacket");
     WTQueuePacketsEx = (typeWTQueuePacketsEx)GetProcAddress(dll, "WTQueuePacketsEx");
+    WTPacketsGet = (typeWTPacketsGet)GetProcAddress(dll, "WTPacketsGet");
+    WTQueueSizeGet = (typeWTQueueSizeGet)GetProcAddress(dll, "WTQueueSizeGet");
+    WTQueueSizeSet = (typeWTQueueSizeSet)GetProcAddress(dll, "WTQueueSizeSet");
     if (
       WTInfoW == NULL ||
       WTOpenW == NULL ||
       WTClose == NULL ||
       WTPacket == NULL ||
-      WTQueuePacketsEx == NULL
+      WTQueuePacketsEx == NULL ||
+      WTPacketsGet == NULL ||
+      WTQueueSizeGet == NULL ||
+      WTQueueSizeSet == NULL
     ) {
       end();
     }
     return dll;
   }
   BOOL getPressureMinMax(AXIS *axis) {
-    if (dll == NULL && init() == NULL) return FALSE;
+    if (dll == NULL) return FALSE;
     if (WTInfoW(WTI_DEVICES, DVC_NPRESSURE, axis) == 0) return FALSE;
     return TRUE;
   }
@@ -96,17 +112,35 @@ public:
     if (getPressureMinMax(&pressureData)) {
       pressure = &pressureData;
     }
+    int defaultSize = WTQueueSizeGet(ctx);
+    WTQueueSizeSet(ctx, C_QUEUE_SIZE);
+    if (WTQueueSizeGet(ctx) < 1) {
+      WTQueueSizeSet(ctx, defaultSize);
+    }
     return ctx;
   }
-  BOOL getLastPacket(PACKET &pkt) {
-    UINT FAR oldest;
-    UINT FAR newest;
-    if (dll == NULL || ctx == NULL) return FALSE;
-    // get que oldest and newest from all queues
-    if (!WTQueuePacketsEx(ctx, &oldest, &newest)) return FALSE;
-    // get newest queue and flush all queues
-    if (!WTPacket(ctx, newest, &pkt)) return FALSE;
-    return TRUE;
+  int getPackets() {
+    if (dll == NULL || ctx == NULL) return -1;
+    if (packets != NULL) endPackets();
+    // heap get
+    heap = GetProcessHeap();
+    if (heap == NULL) return -2;
+    // heap alloc
+    int queueSize = WTQueueSizeGet(ctx);
+    packets = (PACKET*)HeapAlloc(heap, 0, sizeof(PACKET) * queueSize);
+    if (packets == NULL) return -3;
+    // heap write
+    int count = WTPacketsGet(ctx, queueSize, packets);
+    if (count > 0) {
+      return count;
+    } else {
+      endPackets();
+      return -4;
+    }
+  }
+  void endPackets() {
+    HeapFree(heap, 0, packets);
+    packets = NULL;
   }
 } wintab32;
 
@@ -135,13 +169,17 @@ public:
 class DrawParams {
 public:
   BOOL drawing;
+  BOOL eraser;
   int x, y, oldx, oldy;
+  int pressure;
   int penmax, presmax;
   int PEN_MIN, PEN_MAX, PEN_INDE;
   int PRS_MIN, PRS_MAX, PRS_INDE;
   void init() {
     drawing = FALSE;
+    eraser = FALSE;
     x = y = oldx = oldy = 0;
+    pressure = 0;
     PEN_INDE = 1 * 2;
     PEN_MIN = 2 * 2;
     PEN_MAX = 25 * 2;
@@ -169,6 +207,12 @@ public:
     if (presmax < PRS_MIN) presmax = PRS_MIN;
     if (presmax > PRS_MAX) presmax = PRS_MAX;
     return TRUE;
+  }
+  void movePoint(int newx, int newy) {
+    oldx = x;
+    oldy = y;
+    x = newx;
+    y = newy;
   }
 };
 
@@ -230,9 +274,7 @@ public:
 
 LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   static DrawParams dwpa;
-  // GDI+
   static DCBuffer dcb1;
-  // Wintab
   Wintab32 &wt = wintab32;
   switch (msg) {
   case WM_CREATE: {
@@ -256,71 +298,37 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     EndPaint(hwnd, &ps);
     return 0;
   }
-  case WM_MOUSEMOVE: {
-    BOOL eraser = FALSE;
-    int pensize = 1;
-    int pressure = 100;
-    int penmax = dwpa.penmax;
-    int presmax = dwpa.presmax;
-    // init
-    int &oldx = dwpa.oldx, &oldy = dwpa.oldy, &x = dwpa.x, &y = dwpa.y;
-    oldx = x;
-    oldy = y;
-    x = GET_X_LPARAM(lp);
-    y = GET_Y_LPARAM(lp);
-    // wintab
-    if (wt.ctx != NULL) {
-      PACKET pkt;
-      if (wt.getLastPacket(pkt)) {
-        pressure = pkt.pkNormalPressure;
-        if (pkt.pkCursor == 2) eraser = TRUE;
-      }
-    }
-    if (pressure > presmax) pressure = presmax;
-    // draw line
-    if (dwpa.drawing) {
-      pensize = pressure * penmax / presmax;
-      Pen pen2(C_FGCOLOR, pensize);
-      pen2.SetStartCap(LineCapRound);
-      pen2.SetEndCap(LineCapRound);
-      if (eraser) {
-        pen2.SetColor(C_BGCOLOR);
-        pen2.SetWidth(10);
-      }
-      HDC odc = GetDC(hwnd);
-      for (int i = 0; i <= 1; i++) {
-        Graphics gpctx(i ? dcb1.dc : odc);
-        gpctx.SetSmoothingMode(SmoothingModeAntiAlias);
-        gpctx.DrawLine(&pen2, oldx, oldy, x, y);
-      }
-      ReleaseDC(hwnd, odc);
-    }
+  case WM_LBUTTONDOWN: {
+    dwpa.movePoint(GET_X_LPARAM(lp), GET_Y_LPARAM(lp));
+    dwpa.drawing = TRUE;
+    SetCapture(hwnd);
     return 0;
   }
-  case WM_ACTIVATE: {
-    if (LOWORD(wp) == WA_INACTIVE) {
-      dwpa.drawing = FALSE;
-      SetWindowLongPtr(hwnd, GWL_EXSTYLE, WS_EX_LEFT);
-      SetWindowPos(hwnd, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+  case WM_MOUSEMOVE: {
+    PACKET pkt;
+    int count = wt.getPackets();
+    if (count > 0) for (int i = 0; i < count; i++) {
+      pkt = wt.packets[i];
+      dwpa.pressure = pkt.pkNormalPressure;
+      dwpa.eraser = !!(pkt.pkStatus & TPS_INVERT);
+      POINT point;
+      point.x = pkt.pkX;
+      point.y = pkt.pkY;
+      ScreenToClient(hwnd, &point);
+      dwpa.movePoint(point.x, point.y);
+      SendMessage(hwnd, WM_COMMAND, C_CMD_DRAW, 0);
     } else {
-      SetWindowLongPtr(hwnd, GWL_EXSTYLE, WS_EX_TOPMOST);
-      SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+      dwpa.pressure = dwpa.PRS_INDE * 3;
+      dwpa.eraser = FALSE;
+      dwpa.movePoint(GET_X_LPARAM(lp), GET_Y_LPARAM(lp));
+      SendMessage(hwnd, WM_COMMAND, C_CMD_DRAW, 0);
     }
+    wt.endPackets();
     return 0;
   }
   case WM_LBUTTONUP: {
     dwpa.drawing = FALSE;
     ReleaseCapture();
-    return 0;
-  }
-  case WM_LBUTTONDOWN: {
-    int &oldx = dwpa.oldx, &oldy = dwpa.oldy, &x = dwpa.x, &y = dwpa.y;
-    oldx = x;
-    oldy = y;
-    x = GET_X_LPARAM(lp);
-    y = GET_Y_LPARAM(lp);
-    dwpa.drawing = TRUE;
-    SetCapture(hwnd);
     return 0;
   }
   case WM_RBUTTONUP: {
@@ -336,6 +344,33 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   }
   case WM_COMMAND: {
     switch (LOWORD(wp)) {
+    case C_CMD_DRAW: {
+      // draw line
+      int pensize;
+      int pressure = dwpa.pressure;
+      int penmax = dwpa.penmax;
+      int presmax = dwpa.presmax;
+      int oldx = dwpa.oldx, oldy = dwpa.oldy, x = dwpa.x, y = dwpa.y;
+      if (!dwpa.drawing) {
+        return 0;
+      }
+      if (pressure > presmax) pressure = presmax;
+      pensize = pressure * penmax / presmax;
+      Pen pen2(C_FGCOLOR, pensize);
+      pen2.SetStartCap(LineCapRound);
+      pen2.SetEndCap(LineCapRound);
+      if (dwpa.eraser) {
+        pen2.SetColor(C_BGCOLOR);
+      }
+      for (int i = 0; i <= 1; i++) {
+        Graphics screen(hwnd);
+        Graphics buffer(dcb1.dc);
+        Graphics *gpctx = i ? &buffer : &screen;
+        gpctx->SetSmoothingMode(SmoothingModeAntiAlias);
+        gpctx->DrawLine(&pen2, oldx, oldy, x, y);
+      }
+      return 0;
+    }
     case C_CMD_REFRESH: {
       BOOL scs = wt.startMouseMode(hwnd) != NULL;
       SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOSIZE);
@@ -405,6 +440,17 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       cursor.setCursor(hwnd, dwpa);
       return 0;
     }
+    }
+    return 0;
+  }
+  case WM_ACTIVATE: {
+    if (LOWORD(wp) == WA_INACTIVE) {
+      dwpa.drawing = FALSE;
+      SetWindowLongPtr(hwnd, GWL_EXSTYLE, WS_EX_LEFT);
+      SetWindowPos(hwnd, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+    } else {
+      SetWindowLongPtr(hwnd, GWL_EXSTYLE, WS_EX_TOPMOST);
+      SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
     }
     return 0;
   }
