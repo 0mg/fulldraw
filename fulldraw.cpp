@@ -362,7 +362,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   case WM_MOUSEMOVE: {
     PACKET pkt;
     int count = wt.getPackets();
-    if (count > 0) for (int i = 0; i < count; i++) {
+    if (count > 0) for (int i = count - 1; i < count; i++) {
       pkt = wt.packets[i];
       dwpa.pressure = pkt.pkNormalPressure;
       dwpa.eraser = !!(pkt.pkStatus & TPS_INVERT);
@@ -370,7 +370,8 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       point.x = pkt.pkX;
       point.y = pkt.pkY;
       ScreenToClient(hwnd, &point);
-      dwpa.movePoint(point.x, point.y);
+      //dwpa.movePoint(point.x, point.y);
+      dwpa.movePoint(GET_X_LPARAM(lp), GET_Y_LPARAM(lp));
       SendMessage(hwnd, WM_COMMAND, C_CMD_DRAW, 0);
       #ifdef dev
       touf("[%d] prs:%d, st:%d, gdi:%d, penmax:%d, presmax:%d, heap:%d",
