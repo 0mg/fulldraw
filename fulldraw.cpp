@@ -326,6 +326,8 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   static DrawParams dwpa;
   static DCBuffer dcb1;
   Wintab32 &wt = wintab32;
+  static HMENU menu;
+  static HMENU popup;
   switch (msg) {
   case WM_CREATE: {
     // load wintab32.dll and open context
@@ -336,6 +338,9 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     dcb1.init(hwnd);
     // cursor
     cursor.setCursor(hwnd, dwpa);
+    // menu
+    menu = LoadMenu(GetModuleHandle(NULL), TEXT("C_CTXMENU"));
+    popup = GetSubMenu(menu, 0);
     #ifdef dev
     createDebugWindow(hwnd);
     wsprintf(ss, TEXT("fulldraw - %d, %d"), wt.dll, wt.ctx);
@@ -381,7 +386,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       #endif
     } else {
       dwpa.pressure = dwpa.PRS_INDE * 3;
-      dwpa.eraser = FALSE;
+      //dwpa.eraser = FALSE;
       dwpa.movePoint(GET_X_LPARAM(lp), GET_Y_LPARAM(lp));
       SendMessage(hwnd, WM_COMMAND, C_CMD_DRAW, 0);
       #ifdef dev
@@ -396,15 +401,11 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     ReleaseCapture();
     return 0;
   }
-  case WM_RBUTTONUP: {
+  case WM_CONTEXTMENU: {
     dwpa.drawing = FALSE;
-    HMENU menu = LoadMenu(GetModuleHandle(NULL), TEXT("C_CTXMENU"));
-    HMENU popup = GetSubMenu(menu, 0);
-    POINT point;
-    point.x = GET_X_LPARAM(lp);
-    point.y = GET_Y_LPARAM(lp);
-    ClientToScreen(hwnd, &point);
-    TrackPopupMenuEx(popup, 0, point.x, point.y, hwnd, NULL);
+    CheckMenuItem(popup, C_CMD_ERASER,
+      dwpa.eraser ? MFS_CHECKED : MFS_UNCHECKED);
+    TrackPopupMenuEx(popup, 0, GET_X_LPARAM(lp), GET_Y_LPARAM(lp), hwnd, NULL);
     return 0;
   }
   case WM_COMMAND: {
@@ -466,6 +467,10 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       CloseWindow(hwnd);
       return 0;
     }
+    case C_CMD_ERASER: {
+      dwpa.eraser = !dwpa.eraser;
+      return 0;
+    }
     }
     return 0;
   }
@@ -484,6 +489,10 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       } else {
         break;
       }
+    }
+    case 69: { // e
+      SendMessage(hwnd, WM_COMMAND, C_CMD_ERASER, 0);
+      return 0;
     }
     case 83: // s
     case VK_DOWN: { // down

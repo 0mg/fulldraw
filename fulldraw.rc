@@ -5,6 +5,7 @@ C_APPICON ICON "fulldraw.ico"
 
 C_CTXMENU MENU {
   POPUP "0" {
+    MENUITEM "eraser\tE", C_CMD_ERASER
     MENUITEM "refresh\tF5", C_CMD_REFRESH
     MENUITEM "clear\tDel", C_CMD_CLEAR
     MENUITEM "minimize\tCtrl+M", C_CMD_MINIMIZE
