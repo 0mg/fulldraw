@@ -276,6 +276,8 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   static DrawParams dwpa;
   static DCBuffer dcb1;
   Wintab32 &wt = wintab32;
+  static HMENU menu;
+  static HMENU popup;
   switch (msg) {
   case WM_CREATE: {
     // load wintab32.dll and open context
@@ -286,6 +288,9 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     dcb1.init(hwnd);
     // cursor
     cursor.setCursor(hwnd, dwpa);
+    // menu
+    menu = LoadMenu(GetModuleHandle(NULL), TEXT("C_CTXMENU"));
+    popup = GetSubMenu(menu, 0);
     return 0;
   }
   case WM_ERASEBKGND: {
@@ -300,6 +305,8 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   }
   case WM_LBUTTONDOWN: {
     dwpa.movePoint(GET_X_LPARAM(lp), GET_Y_LPARAM(lp));
+    wt.getPackets();
+    wt.endPackets();
     dwpa.drawing = TRUE;
     SetCapture(hwnd);
     return 0;
@@ -307,7 +314,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   case WM_MOUSEMOVE: {
     PACKET pkt;
     int count = wt.getPackets();
-    if (count > 0) for (int i = count - 1; i < count; i++) {
+    if (count > 0) for (int i = 0; i < count; i++) {
       pkt = wt.packets[i];
       dwpa.pressure = pkt.pkNormalPressure;
       dwpa.eraser = !!(pkt.pkStatus & TPS_INVERT);
@@ -315,12 +322,10 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       point.x = pkt.pkX;
       point.y = pkt.pkY;
       ScreenToClient(hwnd, &point);
-      //dwpa.movePoint(point.x, point.y);
-      dwpa.movePoint(GET_X_LPARAM(lp), GET_Y_LPARAM(lp));
+      dwpa.movePoint(point.x, point.y);
       SendMessage(hwnd, WM_COMMAND, C_CMD_DRAW, 0);
     } else {
       dwpa.pressure = dwpa.PRS_INDE * 3;
-      dwpa.eraser = FALSE;
       dwpa.movePoint(GET_X_LPARAM(lp), GET_Y_LPARAM(lp));
       SendMessage(hwnd, WM_COMMAND, C_CMD_DRAW, 0);
     }
@@ -332,15 +337,11 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     ReleaseCapture();
     return 0;
   }
-  case WM_RBUTTONUP: {
+  case WM_CONTEXTMENU: {
     dwpa.drawing = FALSE;
-    HMENU menu = LoadMenu(GetModuleHandle(NULL), TEXT("C_CTXMENU"));
-    HMENU popup = GetSubMenu(menu, 0);
-    POINT point;
-    point.x = GET_X_LPARAM(lp);
-    point.y = GET_Y_LPARAM(lp);
-    ClientToScreen(hwnd, &point);
-    TrackPopupMenuEx(popup, 0, point.x, point.y, hwnd, NULL);
+    CheckMenuItem(popup, C_CMD_ERASER,
+      dwpa.eraser ? MFS_CHECKED : MFS_UNCHECKED);
+    TrackPopupMenuEx(popup, 0, GET_X_LPARAM(lp), GET_Y_LPARAM(lp), hwnd, NULL);
     return 0;
   }
   case WM_COMMAND: {
@@ -397,45 +398,50 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       CloseWindow(hwnd);
       return 0;
     }
+    case C_CMD_ERASER: {
+      dwpa.eraser = !dwpa.eraser;
+      return 0;
+    }
     }
     return 0;
   }
   case WM_KEYDOWN: {
+    int ctrl = GetAsyncKeyState(VK_CONTROL);
     switch (wp) {
     case VK_ESCAPE: PostMessage(hwnd, WM_COMMAND, C_CMD_EXIT, 0); return 0;
     case VK_DELETE: PostMessage(hwnd, WM_COMMAND, C_CMD_CLEAR, 0); return 0;
     case VK_F5: PostMessage(hwnd, WM_COMMAND, C_CMD_REFRESH, 0); return 0;
-    case 77: { //m
-      if (GetAsyncKeyState(VK_CONTROL)) {
+    case 77: { // M
+      if (ctrl) {
         PostMessage(hwnd, WM_COMMAND, C_CMD_MINIMIZE, 0);
-        return 0;
       } else {
         break;
       }
+      return 0;
     }
-    case 83: // s
-    case VK_DOWN: { // down
+    case 69: { // E
+      SendMessage(hwnd, WM_COMMAND, C_CMD_ERASER, 0);
+      return 0;
+    }
+    case VK_DOWN: {
       dwpa.penmax -= dwpa.PEN_INDE;
       dwpa.updatePenPres();
       cursor.setCursor(hwnd, dwpa);
       return 0;
     }
-    case 87: // w
-    case VK_UP: { // up
+    case VK_UP: {
       dwpa.penmax += dwpa.PEN_INDE;
       dwpa.updatePenPres();
       cursor.setCursor(hwnd, dwpa);
       return 0;
     }
-    case 65: // a
-    case VK_LEFT: { // left
+    case VK_LEFT: {
       dwpa.presmax -= dwpa.PRS_INDE;
       dwpa.updatePenPres();
       cursor.setCursor(hwnd, dwpa);
       return 0;
     }
-    case 68: // d
-    case VK_RIGHT: { // right
+    case VK_RIGHT: {
       dwpa.presmax += dwpa.PRS_INDE;
       dwpa.updatePenPres();
       cursor.setCursor(hwnd, dwpa);
@@ -497,7 +503,7 @@ int WINAPI WinMain(HINSTANCE hi, HINSTANCE hp, LPSTR cl, int cs) {
   // Main Window: Create, Show
   HWND hwnd = CreateWindowEx(
     WS_EX_TOPMOST,
-    C_WINDOW_CLASS, C_APPNAME,
+    wc.lpszClassName, C_APPNAME,
     WS_VISIBLE | WS_SYSMENU | WS_POPUP,
     0, 0,
     C_SCWIDTH,
