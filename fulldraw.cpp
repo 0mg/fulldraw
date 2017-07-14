@@ -25,17 +25,18 @@ void __start__() {
 
 #ifdef dev
 HWND chwnd;
-LONG nn;
 TCHAR ss[255];
 HDC ddcc;
-void tou(LPTSTR str, HDC hdc, HWND hwnd) {
+void tou(LPTSTR str, HDC hdc, HWND hwnd, int bottom) {
   Graphics gpctx(hdc);
-  Pen pen(C_BGCOLOR, 40);
-  gpctx.DrawLine(&pen, 0, 0, C_SCWIDTH, 0);
-  TextOut(hdc, 0, 0, str, lstrlen(str));
-  InvalidateRect(hwnd, NULL, FALSE);
+  SolidBrush brush(0xFFc0c0c0);
+  gpctx.FillRectangle(&brush, 0, bottom * 20, C_SCWIDTH, 20);
+  TextOut(hdc, 0, bottom * 20, str, lstrlen(str));
+  InvalidateRect(hwnd, NULL, TRUE);
 }
-#define touf(f,...)  wsprintf(ss,TEXT(f),__VA_ARGS__),tou(ss,ddcc,chwnd)
+#define touf(f,...)  wsprintf(ss,TEXT(f),__VA_ARGS__),tou(ss,ddcc,chwnd,0)
+#define touf2(f,...) wsprintf(ss,TEXT(f),__VA_ARGS__),tou(ss,ddcc,chwnd,1)
+#define touf3(f,...) wsprintf(ss,TEXT(f),__VA_ARGS__),tou(ss,ddcc,chwnd,2)
 #define mboxf(f,...) wsprintf(ss,TEXT(f),__VA_ARGS__),MessageBox(NULL,ss,ss,MB_OK)
 #endif
 
@@ -318,7 +319,7 @@ void createDebugWindow(HWND parent) {
     return;
   }
   chwnd = CreateWindow(wc.lpszClassName, C_APPNAME, WS_VISIBLE,
-    0, 600, C_SCWIDTH, 70, parent, NULL, NULL, NULL);
+    0, 600, C_SCWIDTH, 100, parent, NULL, NULL, NULL);
 }
 #endif
 
@@ -328,6 +329,14 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   Wintab32 &wt = wintab32;
   static HMENU menu;
   static HMENU popup;
+  #ifdef dev
+  static UINT mss[16];
+  int i = sizeof(mss) / sizeof(UINT);
+  for (;i-- > 1;) mss[i] = mss[i - 1];
+  mss[i] = msg;
+  touf2("%x > %x > %x > %x > %x > %x > %x > %x > %x > %x > %x > %x > %x > %x > %x > %x", mss[0], mss[1], mss[2], mss[3], mss[4], mss[5], mss[6], mss[7], mss[8], mss[9], mss[10], mss[11], mss[12], mss[13], mss[14], mss[15]);
+  touf3("gdi:%d", GetGuiResources(GetCurrentProcess(), GR_GDIOBJECTS));
+  #endif
   switch (msg) {
   case WM_CREATE: {
     // load wintab32.dll and open context
@@ -360,6 +369,8 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   }
   case WM_LBUTTONDOWN: {
     dwpa.movePoint(GET_X_LPARAM(lp), GET_Y_LPARAM(lp));
+    wt.getPackets();
+    wt.endPackets();
     dwpa.drawing = TRUE;
     SetCapture(hwnd);
     return 0;
@@ -367,7 +378,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   case WM_MOUSEMOVE: {
     PACKET pkt;
     int count = wt.getPackets();
-    if (count > 0) for (int i = count - 1; i < count; i++) {
+    if (count > 0) for (int i = 0; i < count; i++) {
       pkt = wt.packets[i];
       dwpa.pressure = pkt.pkNormalPressure;
       dwpa.eraser = !!(pkt.pkStatus & TPS_INVERT);
@@ -375,23 +386,17 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       point.x = pkt.pkX;
       point.y = pkt.pkY;
       ScreenToClient(hwnd, &point);
-      //dwpa.movePoint(point.x, point.y);
-      dwpa.movePoint(GET_X_LPARAM(lp), GET_Y_LPARAM(lp));
+      dwpa.movePoint(point.x, point.y);
       SendMessage(hwnd, WM_COMMAND, C_CMD_DRAW, 0);
       #ifdef dev
-      touf("[%d] prs:%d, st:%d, gdi:%d, penmax:%d, presmax:%d, heap:%d",
+      touf("[%d] prs:%d, st:%d, penmax:%d, presmax:%d, heap:%d",
         GetTickCount(), dwpa.pressure, pkt.pkStatus,
-        GetGuiResources(GetCurrentProcess(), GR_GDIOBJECTS),
         dwpa.penmax, dwpa.presmax, wt.heap);
       #endif
     } else {
       dwpa.pressure = dwpa.PRS_INDE * 3;
-      //dwpa.eraser = FALSE;
       dwpa.movePoint(GET_X_LPARAM(lp), GET_Y_LPARAM(lp));
       SendMessage(hwnd, WM_COMMAND, C_CMD_DRAW, 0);
-      #ifdef dev
-      touf("gdi:%d", GetGuiResources(GetCurrentProcess(), GR_GDIOBJECTS));
-      #endif
     }
     wt.endPackets();
     return 0;
@@ -478,45 +483,42 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     #ifdef dev
     touf("%d", wp);
     #endif
+    int ctrl = GetAsyncKeyState(VK_CONTROL);
     switch (wp) {
     case VK_ESCAPE: PostMessage(hwnd, WM_COMMAND, C_CMD_EXIT, 0); return 0;
     case VK_DELETE: PostMessage(hwnd, WM_COMMAND, C_CMD_CLEAR, 0); return 0;
     case VK_F5: PostMessage(hwnd, WM_COMMAND, C_CMD_REFRESH, 0); return 0;
-    case 77: { //m
-      if (GetAsyncKeyState(VK_CONTROL)) {
+    case 77: { // M
+      if (ctrl) {
         PostMessage(hwnd, WM_COMMAND, C_CMD_MINIMIZE, 0);
-        return 0;
       } else {
         break;
       }
+      return 0;
     }
-    case 69: { // e
+    case 69: { // E
       SendMessage(hwnd, WM_COMMAND, C_CMD_ERASER, 0);
       return 0;
     }
-    case 83: // s
-    case VK_DOWN: { // down
+    case VK_DOWN: {
       dwpa.penmax -= dwpa.PEN_INDE;
       dwpa.updatePenPres();
       cursor.setCursor(hwnd, dwpa);
       return 0;
     }
-    case 87: // w
-    case VK_UP: { // up
+    case VK_UP: {
       dwpa.penmax += dwpa.PEN_INDE;
       dwpa.updatePenPres();
       cursor.setCursor(hwnd, dwpa);
       return 0;
     }
-    case 65: // a
-    case VK_LEFT: { // left
+    case VK_LEFT: {
       dwpa.presmax -= dwpa.PRS_INDE;
       dwpa.updatePenPres();
       cursor.setCursor(hwnd, dwpa);
       return 0;
     }
-    case 68: // d
-    case VK_RIGHT: { // right
+    case VK_RIGHT: {
       dwpa.presmax += dwpa.PRS_INDE;
       dwpa.updatePenPres();
       cursor.setCursor(hwnd, dwpa);
@@ -590,14 +592,14 @@ int WINAPI WinMain(HINSTANCE hi, HINSTANCE hp, LPSTR cl, int cs) {
   HWND hwnd = CreateWindowEx(
     #ifdef dev
     WS_EX_LEFT,
-    C_WINDOW_CLASS, C_APPNAME,
+    wc.lpszClassName, C_APPNAME,
     WS_VISIBLE | WS_SYSMENU | WS_POPUP | WS_OVERLAPPEDWINDOW,
     80, 80,
     C_SCWIDTH/1.5,
     C_SCHEIGHT/1.5,
     #else
     WS_EX_TOPMOST,
-    C_WINDOW_CLASS, C_APPNAME,
+    wc.lpszClassName, C_APPNAME,
     WS_VISIBLE | WS_SYSMENU | WS_POPUP,
     0, 0,
     C_SCWIDTH,
