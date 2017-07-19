@@ -37,7 +37,8 @@ void tou(LPTSTR str, HDC hdc, HWND hwnd, int bottom) {
 #define touf(f,...)  wsprintf(ss,TEXT(f),__VA_ARGS__),tou(ss,ddcc,chwnd,0)
 #define touf2(f,...) wsprintf(ss,TEXT(f),__VA_ARGS__),tou(ss,ddcc,chwnd,1)
 #define touf3(f,...) wsprintf(ss,TEXT(f),__VA_ARGS__),tou(ss,ddcc,chwnd,2)
-#define mboxf(f,...) wsprintf(ss,TEXT(f),__VA_ARGS__),MessageBox(NULL,ss,ss,MB_OK)
+#define touf4(f,...) wsprintf(ss,TEXT(f),__VA_ARGS__),tou(ss,ddcc,chwnd,3)
+#define mboxf(f,...) wsprintf(ss,TEXT(f),__VA_ARGS__),MessageBox(NULL,ss,ss,0)
 #endif
 
 static class Wintab32 {
@@ -319,7 +320,7 @@ void createDebugWindow(HWND parent) {
     return;
   }
   chwnd = CreateWindow(wc.lpszClassName, C_APPNAME, WS_VISIBLE,
-    0, 600, C_SCWIDTH, 100, parent, NULL, NULL, NULL);
+    0, 600, C_SCWIDTH, 120, parent, NULL, NULL, NULL);
 }
 #endif
 
@@ -334,8 +335,8 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   int i = sizeof(mss) / sizeof(UINT);
   for (;i-- > 1;) mss[i] = mss[i - 1];
   mss[i] = msg;
-  touf2("%x > %x > %x > %x > %x > %x > %x > %x > %x > %x > %x > %x > %x > %x > %x > %x", mss[0], mss[1], mss[2], mss[3], mss[4], mss[5], mss[6], mss[7], mss[8], mss[9], mss[10], mss[11], mss[12], mss[13], mss[14], mss[15]);
-  touf3("gdi:%d", GetGuiResources(GetCurrentProcess(), GR_GDIOBJECTS));
+  touf2("[%x,%x] %x > %x > %x > %x > %x > %x > %x > %x > %x > %x > %x > %x > %x > %x > %x > %x", lp, wp, mss[0], mss[1], mss[2], mss[3], mss[4], mss[5], mss[6], mss[7], mss[8], mss[9], mss[10], mss[11], mss[12], mss[13], mss[14], mss[15]);
+  touf3("[%d] gdi:%d", GetTickCount(), GetGuiResources(GetCurrentProcess(), GR_GDIOBJECTS));
   #endif
   switch (msg) {
   case WM_CREATE: {
@@ -488,7 +489,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     case VK_ESCAPE: PostMessage(hwnd, WM_COMMAND, C_CMD_EXIT, 0); return 0;
     case VK_DELETE: PostMessage(hwnd, WM_COMMAND, C_CMD_CLEAR, 0); return 0;
     case VK_F5: PostMessage(hwnd, WM_COMMAND, C_CMD_REFRESH, 0); return 0;
-    case 77: { // M
+    case 'M': {
       if (ctrl) {
         PostMessage(hwnd, WM_COMMAND, C_CMD_MINIMIZE, 0);
       } else {
@@ -496,7 +497,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       }
       return 0;
     }
-    case 69: { // E
+    case 'E': {
       SendMessage(hwnd, WM_COMMAND, C_CMD_ERASER, 0);
       return 0;
     }
