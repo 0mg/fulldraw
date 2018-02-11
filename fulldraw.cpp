@@ -106,8 +106,8 @@ public:
     lcMine.lcBtnUpMask = lcMine.lcBtnDnMask;
     lcMine.lcOutOrgX = 0;
     lcMine.lcOutOrgY = 0;
-    lcMine.lcOutExtX = GetSystemMetrics(SM_CXSCREEN);
-    lcMine.lcOutExtY = -GetSystemMetrics(SM_CYSCREEN);
+    lcMine.lcOutExtX = GetSystemMetrics(SM_CXVIRTUALSCREEN);
+    lcMine.lcOutExtY = -GetSystemMetrics(SM_CYVIRTUALSCREEN);
     ctx = WTOpenW(hwnd, &lcMine, TRUE);
     if (getPressureMinMax(&pressureData)) {
       pressure = &pressureData;
