@@ -1,10 +1,5 @@
 #include <windows.h>
 #include <windowsx.h>
-#include <msgpack.h>
-#include <wintab.h>
-#define PACKETDATA PK_X | PK_Y | PK_NORMAL_PRESSURE | PK_STATUS
-#define PACKETMODE 0
-#include <pktdef.h>
 #include <gdiplus.h>
 using namespace Gdiplus;
 
@@ -16,7 +11,6 @@ using namespace Gdiplus;
 #define C_SCHEIGHT GetSystemMetrics(SM_CYSCREEN)
 #define C_FGCOLOR Color(255, 0, 0, 0)
 #define C_BGCOLOR Color(255, 255, 255, 255)
-#define C_QUEUE_SIZE 0
 
 void __start__() {
   // program will start from here if `gcc -nostartfiles`
@@ -40,127 +34,6 @@ void tou(LPTSTR str, HDC hdc, HWND hwnd, int bottom) {
 #define touf4(f,...) wsprintf(ss,TEXT(f),__VA_ARGS__),tou(ss,ddcc,chwnd,3)
 #define mboxf(f,...) wsprintf(ss,TEXT(f),__VA_ARGS__),MessageBox(NULL,ss,ss,0)
 #endif
-
-static class Wintab32 {
-private:
-  AXIS pressureData;
-public:
-  typedef UINT (API *typeWTInfoW)(UINT, UINT, LPVOID);
-  typedef HCTX (API *typeWTOpenW)(HWND, LPLOGCONTEXTW, BOOL);
-  typedef BOOL (API *typeWTClose)(HCTX);
-  typedef BOOL (API *typeWTPacket)(HCTX, UINT, LPVOID);
-  typedef BOOL (API *typeWTQueuePacketsEx)(HCTX, UINT FAR *, UINT FAR *);
-  typedef int (API *typeWTPacketsGet)(HCTX, int, LPVOID);
-  typedef int (API *typeWTQueueSizeGet)(HCTX);
-  typedef BOOL (API *typeWTQueueSizeSet)(HCTX, int);
-  typeWTInfoW WTInfoW;
-  typeWTOpenW WTOpenW;
-  typeWTClose WTClose;
-  typeWTPacket WTPacket;
-  typeWTQueuePacketsEx WTQueuePacketsEx;
-  typeWTPacketsGet WTPacketsGet;
-  typeWTQueueSizeGet WTQueueSizeGet;
-  typeWTQueueSizeSet WTQueueSizeSet;
-  HINSTANCE dll;
-  HCTX ctx;
-  AXIS *pressure;
-  HANDLE heap;
-  PACKET *packets;
-  BOOL end() {
-    if (ctx != NULL) {
-      if (WTClose(ctx)) ctx = NULL;
-      else return FALSE; // failed close
-    }
-    if (ctx == NULL && dll != NULL) {
-      if (FreeLibrary(dll)) dll = NULL;
-      else return FALSE; // failed free
-    }
-    return TRUE;
-  }
-  HINSTANCE init() {
-    if (!end()) return NULL;
-    packets = NULL;
-    pressure = NULL;
-    ctx = NULL;
-    dll = LoadLibrary(TEXT("wintab32.dll"));
-    if (dll == NULL) {
-      return dll;
-    }
-    WTInfoW = (typeWTInfoW)GetProcAddress(dll, "WTInfoW");
-    WTOpenW = (typeWTOpenW)GetProcAddress(dll, "WTOpenW");
-    WTClose = (typeWTClose)GetProcAddress(dll, "WTClose");
-    WTPacket = (typeWTPacket)GetProcAddress(dll, "WTPacket");
-    WTQueuePacketsEx = (typeWTQueuePacketsEx)GetProcAddress(dll, "WTQueuePacketsEx");
-    WTPacketsGet = (typeWTPacketsGet)GetProcAddress(dll, "WTPacketsGet");
-    WTQueueSizeGet = (typeWTQueueSizeGet)GetProcAddress(dll, "WTQueueSizeGet");
-    WTQueueSizeSet = (typeWTQueueSizeSet)GetProcAddress(dll, "WTQueueSizeSet");
-    if (
-      WTInfoW == NULL ||
-      WTOpenW == NULL ||
-      WTClose == NULL ||
-      WTPacket == NULL ||
-      WTQueuePacketsEx == NULL ||
-      WTPacketsGet == NULL ||
-      WTQueueSizeGet == NULL ||
-      WTQueueSizeSet == NULL
-    ) {
-      end();
-    }
-    return dll;
-  }
-  BOOL getPressureMinMax(AXIS *axis) {
-    if (dll == NULL) return FALSE;
-    if (WTInfoW(WTI_DEVICES, DVC_NPRESSURE, axis) == 0) return FALSE;
-    return TRUE;
-  }
-  HCTX startMouseMode(HWND hwnd) {
-    if (init() == NULL) return NULL;
-    LOGCONTEXTW lcMine;
-    if (WTInfoW(WTI_DEFSYSCTX, 0, &lcMine) == 0) return NULL;
-    lcMine.lcMsgBase = WT_DEFBASE;
-    lcMine.lcPktData = PACKETDATA;
-    lcMine.lcPktMode = PACKETMODE;
-    lcMine.lcMoveMask = PACKETDATA;
-    lcMine.lcBtnUpMask = lcMine.lcBtnDnMask;
-    lcMine.lcOutOrgX = 0;
-    lcMine.lcOutOrgY = 0;
-    lcMine.lcOutExtX = GetSystemMetrics(SM_CXVIRTUALSCREEN);
-    lcMine.lcOutExtY = -GetSystemMetrics(SM_CYVIRTUALSCREEN);
-    ctx = WTOpenW(hwnd, &lcMine, TRUE);
-    if (getPressureMinMax(&pressureData)) {
-      pressure = &pressureData;
-    }
-    int defaultSize = WTQueueSizeGet(ctx);
-    WTQueueSizeSet(ctx, C_QUEUE_SIZE);
-    if (WTQueueSizeGet(ctx) < 1) {
-      WTQueueSizeSet(ctx, defaultSize);
-    }
-    return ctx;
-  }
-  int getPackets() {
-    if (dll == NULL || ctx == NULL) return -1;
-    if (packets != NULL) endPackets();
-    // heap get
-    heap = GetProcessHeap();
-    if (heap == NULL) return -2;
-    // heap alloc
-    int queueSize = WTQueueSizeGet(ctx);
-    packets = (PACKET*)HeapAlloc(heap, 0, sizeof(PACKET) * queueSize);
-    if (packets == NULL) return -3;
-    // heap write
-    int count = WTPacketsGet(ctx, queueSize, packets);
-    if (count > 0) {
-      return count;
-    } else {
-      endPackets();
-      return -4;
-    }
-  }
-  void endPackets() {
-    HeapFree(heap, 0, packets);
-    packets = NULL;
-  }
-} wintab32;
 
 class DCBuffer {
 public:
@@ -201,17 +74,9 @@ public:
     PEN_INDE = 1 * 2;
     PEN_MIN = 2 * 2;
     PEN_MAX = 25 * 2;
-    if (wintab32.pressure && wintab32.pressure->axMax > 0) {
-      int PRS_DVC_MAX = wintab32.pressure->axMax;
-      int unit = PRS_DVC_MAX >= 31 ? 31 : PRS_DVC_MAX;
-      PRS_MAX = PRS_DVC_MAX;
-      PRS_MIN = PRS_DVC_MAX / unit;
-      PRS_INDE = PRS_MIN;
-    } else {
-      PRS_MAX = 1023;
-      PRS_MIN = 33;
-      PRS_INDE = 33;
-    }
+    PRS_MAX = 1023;
+    PRS_MIN = 33;
+    PRS_INDE = 33;
     presmax = PRS_INDE * 14;
     penmax = 14;
     updatePenPres();
@@ -356,6 +221,9 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     wsprintf(ss, TEXT("fulldraw - %d, %d"), wt.dll, wt.ctx);
     SetWindowText(chwnd, ss);
     #endif
+    // touch
+    EnableMouseInPointer(TRUE);
+    //RegisterTouchHitTestingWindow(hwnd, TOUCH_HIT_TESTING_CLIENT);
     return 0;
   }
   case WM_ERASEBKGND: {
@@ -368,41 +236,49 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     EndPaint(hwnd, &ps);
     return 0;
   }
-  case WM_LBUTTONDOWN: {
-    dwpa.movePoint(GET_X_LPARAM(lp), GET_Y_LPARAM(lp));
-    wt.getPackets();
-    wt.endPackets();
+  case WM_POINTERDOWN: {
+    // WM_RBUTTONDOWN
+    POINTER_PEN_INFO penInfo;
+    GetPointerPenInfo(GET_POINTERID_WPARAM(wp), &penInfo);
+    if (penInfo.pointerInfo.pointerType == PT_MOUSE &&
+      IS_POINTER_SECONDBUTTON_WPARAM(wp)) {
+      
+      PostMessage(hwnd, WM_CONTEXTMENU, lp, wp);
+      return 0;
+    }
+    // WM_LBUTTONDOWN
     dwpa.drawing = TRUE;
     SetCapture(hwnd);
     return 0;
   }
-  case WM_MOUSEMOVE: {
-    PACKET pkt;
-    int count = wt.getPackets();
-    if (count > 0) for (int i = 0; i < count; i++) {
-      pkt = wt.packets[i];
-      dwpa.pressure = pkt.pkNormalPressure;
-      dwpa.eraser = !!(pkt.pkStatus & TPS_INVERT);
-      POINT point;
-      point.x = pkt.pkX;
-      point.y = pkt.pkY;
-      ScreenToClient(hwnd, &point);
-      dwpa.movePoint(point.x, point.y);
-      SendMessage(hwnd, WM_COMMAND, C_CMD_DRAW, 0);
-      #ifdef dev
-      touf("[%d] prs:%d, st:%d, penmax:%d, presmax:%d, heap:%d",
-        GetTickCount(), dwpa.pressure, pkt.pkStatus,
-        dwpa.penmax, dwpa.presmax, wt.heap);
-      #endif
+  case WM_POINTERUPDATE: {
+    // WM_MOUSEMOVE
+    POINTER_PEN_INFO penInfo;
+    GetPointerPenInfo(GET_POINTERID_WPARAM(wp), &penInfo);
+    POINT point;
+    point.x = GET_X_LPARAM(lp);
+    point.y = GET_Y_LPARAM(lp);
+    ScreenToClient(hwnd, &point);
+    dwpa.movePoint(point.x, point.y);
+    #ifdef dev
+    touf("[%d] prs:%d, penmax:%d, presmax:%d",
+      GetTickCount(), dwpa.pressure,
+      dwpa.penmax, dwpa.presmax);
+    #endif
+    if (!dwpa.drawing) {
+      return 0;
+    }
+    if (penInfo.pointerInfo.pointerType & PT_PEN) {
+      dwpa.pressure = penInfo.pressure;
+      dwpa.eraser = !!(penInfo.penFlags & PEN_FLAG_ERASER);
     } else {
       dwpa.pressure = dwpa.PRS_INDE * 3;
-      dwpa.movePoint(GET_X_LPARAM(lp), GET_Y_LPARAM(lp));
-      SendMessage(hwnd, WM_COMMAND, C_CMD_DRAW, 0);
     }
-    wt.endPackets();
+    SendMessage(hwnd, WM_COMMAND, C_CMD_DRAW, 0);
     return 0;
   }
-  case WM_LBUTTONUP: {
+  case WM_POINTERUP: {
+    // WM_LBUTTONDOWN
     dwpa.drawing = FALSE;
     ReleaseCapture();
     return 0;
@@ -444,17 +320,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       return 0;
     }
     case C_CMD_REFRESH: {
-      BOOL scs = wt.startMouseMode(hwnd) != NULL;
       SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOSIZE);
-      #ifdef dev
-      wsprintf(ss, TEXT("fulldraw - %d, %d, %d"),
-        wt.dll, wt.ctx, GetTickCount());
-      SetWindowText(chwnd, ss);
-      #endif
-      if (!scs) {
-        MessageBox(hwnd, TEXT("failed: wintab32.dll"),
-          C_APPNAME, MB_OK | MB_ICONSTOP);
-      }
       return 0;
     }
     case C_CMD_EXIT: {
@@ -605,7 +471,6 @@ int WINAPI WinMain(HINSTANCE hi, HINSTANCE hp, LPSTR cl, int cs) {
     0, 0,
     C_SCWIDTH,
     C_SCHEIGHT,
-    #endif
     NULL, NULL, hi, NULL
   );
   if (hwnd == NULL) return 1;
