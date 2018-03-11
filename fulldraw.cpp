@@ -192,7 +192,6 @@ void createDebugWindow(HWND parent) {
 LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   static DrawParams dwpa;
   static DCBuffer dcb1;
-  Wintab32 &wt = wintab32;
   static HMENU menu;
   static HMENU popup;
   #ifdef dev
@@ -205,8 +204,6 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   #endif
   switch (msg) {
   case WM_CREATE: {
-    // load wintab32.dll and open context
-    wt.startMouseMode(hwnd);
     // x, y
     dwpa.init();
     // ready bitmap buffer
@@ -218,7 +215,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     popup = GetSubMenu(menu, 0);
     #ifdef dev
     createDebugWindow(hwnd);
-    wsprintf(ss, TEXT("fulldraw - %d, %d"), wt.dll, wt.ctx);
+    wsprintf(ss, TEXT("fulldraw - %d, %d"), 0, 0);
     SetWindowText(chwnd, ss);
     #endif
     // touch
@@ -242,11 +239,15 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     GetPointerPenInfo(GET_POINTERID_WPARAM(wp), &penInfo);
     if (penInfo.pointerInfo.pointerType == PT_MOUSE &&
       IS_POINTER_SECONDBUTTON_WPARAM(wp)) {
-      
-      PostMessage(hwnd, WM_CONTEXTMENU, lp, wp);
+      PostMessage(hwnd, WM_CONTEXTMENU, wp, lp);
       return 0;
     }
     // WM_LBUTTONDOWN
+    POINT point;
+    point.x = GET_X_LPARAM(lp);
+    point.y = GET_Y_LPARAM(lp);
+    ScreenToClient(hwnd, &point);
+    dwpa.movePoint(point.x, point.y);
     dwpa.drawing = TRUE;
     SetCapture(hwnd);
     return 0;
@@ -283,7 +284,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     ReleaseCapture();
     return 0;
   }
-  case WM_CONTEXTMENU: {
+  case WM_CONTEXTMENU: { // WM_CONTEXTMENU's lp is [screen x,y]
     dwpa.drawing = FALSE;
     CheckMenuItem(popup, C_CMD_ERASER,
       dwpa.eraser ? MFS_CHECKED : MFS_UNCHECKED);
@@ -420,7 +421,6 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     C_APPNAME, MB_OKCANCEL | MB_ICONWARNING) == IDOK) {
     #endif
       dcb1.end();
-      wt.end();
       DestroyWindow(hwnd);
     }
     return 0;
@@ -471,6 +471,7 @@ int WINAPI WinMain(HINSTANCE hi, HINSTANCE hp, LPSTR cl, int cs) {
     0, 0,
     C_SCWIDTH,
     C_SCHEIGHT,
+    #endif
     NULL, NULL, hi, NULL
   );
   if (hwnd == NULL) return 1;
