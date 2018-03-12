@@ -2,26 +2,23 @@
 
 A drawing software.
 
-drawing to fullscreen canvas.
+Draw to fullscreen canvas.
 
-No UI, all white.
+UI is none, all white.
 
 ## for
 
 * wacom pentablet
 * Windows 10
 
+## usage
+
+### keyboard
+
+* `↑` `↓`: tweak pen size
+* `←` `→`: tweak pressure sens
+
 ## how to build
-
-### require
-
-install wacom driver. (to will appear `wintab32.dll`)
-
-get wintab header files.
-
-* msgpack.h
-* pktdef.h
-* wintab.h
 
 ### command
 

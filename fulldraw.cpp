@@ -20,6 +20,7 @@ void __start__() {
 #ifdef dev
 HWND chwnd;
 TCHAR ss[255];
+ULONGLONG nn;
 HDC ddcc;
 void tou(LPTSTR str, HDC hdc, HWND hwnd, int bottom) {
   Graphics gpctx(hdc);
@@ -59,7 +60,6 @@ public:
 
 class DrawParams {
 public:
-  BOOL drawing;
   BOOL eraser;
   int x, y, oldx, oldy;
   int pressure;
@@ -67,7 +67,6 @@ public:
   int PEN_MIN, PEN_MAX, PEN_INDE;
   int PRS_MIN, PRS_MAX, PRS_INDE;
   void init() {
-    drawing = FALSE;
     eraser = FALSE;
     x = y = oldx = oldy = 0;
     pressure = 0;
@@ -218,9 +217,8 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     wsprintf(ss, TEXT("fulldraw - %d, %d"), 0, 0);
     SetWindowText(chwnd, ss);
     #endif
-    // touch
+    // post WM_POINTERXXX on mouse move
     EnableMouseInPointer(TRUE);
-    //RegisterTouchHitTestingWindow(hwnd, TOUCH_HIT_TESTING_CLIENT);
     return 0;
   }
   case WM_ERASEBKGND: {
@@ -243,12 +241,10 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       return 0;
     }
     // WM_LBUTTONDOWN
-    POINT point;
-    point.x = GET_X_LPARAM(lp);
-    point.y = GET_Y_LPARAM(lp);
+    POINT point = {GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
     ScreenToClient(hwnd, &point);
     dwpa.movePoint(point.x, point.y);
-    dwpa.drawing = TRUE;
+    dwpa.pressure = dwpa.PRS_INDE * 3; // for mouse
     SetCapture(hwnd);
     return 0;
   }
@@ -256,9 +252,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     // WM_MOUSEMOVE
     POINTER_PEN_INFO penInfo;
     GetPointerPenInfo(GET_POINTERID_WPARAM(wp), &penInfo);
-    POINT point;
-    point.x = GET_X_LPARAM(lp);
-    point.y = GET_Y_LPARAM(lp);
+    POINT point = {GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
     ScreenToClient(hwnd, &point);
     dwpa.movePoint(point.x, point.y);
     #ifdef dev
@@ -266,26 +260,25 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       GetTickCount(), dwpa.pressure,
       dwpa.penmax, dwpa.presmax);
     #endif
-    if (!dwpa.drawing) {
-      return 0;
-    }
-    if (penInfo.pointerInfo.pointerType & PT_PEN) {
+    if (penInfo.pointerInfo.pointerType == PT_PEN) {
+      if (!penInfo.pressure) {
+        // Sometimes, Windows doesn't set cursor
+        cursor.setCursor(hwnd, dwpa);
+        return 0;
+      }
       dwpa.pressure = penInfo.pressure;
       dwpa.eraser = !!(penInfo.penFlags & PEN_FLAG_ERASER);
-    } else {
-      dwpa.pressure = dwpa.PRS_INDE * 3;
     }
     SendMessage(hwnd, WM_COMMAND, C_CMD_DRAW, 0);
     return 0;
   }
   case WM_POINTERUP: {
-    // WM_LBUTTONDOWN
-    dwpa.drawing = FALSE;
+    // WM_LBUTTONUP
+    dwpa.pressure = 0; // for mouse
     ReleaseCapture();
     return 0;
   }
   case WM_CONTEXTMENU: { // WM_CONTEXTMENU's lp is [screen x,y]
-    dwpa.drawing = FALSE;
     CheckMenuItem(popup, C_CMD_ERASER,
       dwpa.eraser ? MFS_CHECKED : MFS_UNCHECKED);
     TrackPopupMenuEx(popup, 0, GET_X_LPARAM(lp), GET_Y_LPARAM(lp), hwnd, NULL);
@@ -300,11 +293,11 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       int penmax = dwpa.penmax;
       int presmax = dwpa.presmax;
       int oldx = dwpa.oldx, oldy = dwpa.oldy, x = dwpa.x, y = dwpa.y;
-      if (!dwpa.drawing) {
-        return 0;
-      }
       if (pressure > presmax) pressure = presmax;
       pensize = pressure * penmax / presmax;
+      if (!pensize) {
+        return 0; // DrawLine() draws 1px line if pensize=0
+      }
       Pen pen2(C_FGCOLOR, pensize);
       pen2.SetStartCap(LineCapRound);
       pen2.SetEndCap(LineCapRound);
@@ -397,7 +390,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   }
   case WM_ACTIVATE: {
     if (LOWORD(wp) == WA_INACTIVE) {
-      dwpa.drawing = FALSE;
+      dwpa.pressure = 0;
       SetWindowLongPtr(hwnd, GWL_EXSTYLE, WS_EX_LEFT);
       SetWindowPos(hwnd, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
     } else {
