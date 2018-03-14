@@ -35,7 +35,6 @@ void tou(LPTSTR str, HDC hdc, HWND hwnd, int bottom) {
 #define touf4(f,...) wsprintf(ss,TEXT(f),__VA_ARGS__),tou(ss,ddcc,chwnd,3)
 #define mboxf(f,...) wsprintf(ss,TEXT(f),__VA_ARGS__),MessageBox(NULL,ss,ss,0)
 #endif
-
 class DCBuffer {
 public:
   HDC dc;
@@ -187,7 +186,6 @@ void createDebugWindow(HWND parent) {
     0, 600, C_SCWIDTH, 120, parent, NULL, NULL, NULL);
 }
 #endif
-
 LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   static DrawParams dwpa;
   static DCBuffer dcb1;
@@ -446,7 +444,8 @@ int WINAPI WinMain(HINSTANCE hi, HINSTANCE hp, LPSTR cl, int cs) {
   wc.lpszMenuName = NULL;
   wc.lpszClassName = C_WINDOW_CLASS;
   wc.hIconSm = (HICON)LoadImage(hi, TEXT("C_APPICON"), IMAGE_ICON, 0, 0, LR_DEFAULTCOLOR);
-  if (RegisterClassEx(&wc) == 0) return 1;
+  // WinMain() must return 0 before msg loop
+  if (RegisterClassEx(&wc) == 0) return 0;
 
   // Main Window: Create, Show
   HWND hwnd = CreateWindowEx(
@@ -467,7 +466,8 @@ int WINAPI WinMain(HINSTANCE hi, HINSTANCE hp, LPSTR cl, int cs) {
     #endif
     NULL, NULL, hi, NULL
   );
-  if (hwnd == NULL) return 1;
+  // WinMain() must return 0 before msg loop
+  if (hwnd == NULL) return 0;
 
   // main
   MSG msg;
