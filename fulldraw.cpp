@@ -411,7 +411,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     case VK_ESCAPE: PostMessage(hwnd, WM_COMMAND, C_CMD_EXIT, 0); return 0;
     case VK_DELETE: PostMessage(hwnd, WM_COMMAND, C_CMD_CLEAR, 0); return 0;
     case VK_F5: PostMessage(hwnd, WM_COMMAND, C_CMD_REFRESH, 0); return 0;
-    case 77: { // M
+    case 'M': {
       if (ctrl) {
         PostMessage(hwnd, WM_COMMAND, C_CMD_MINIMIZE, 0);
       } else {
@@ -419,7 +419,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       }
       return 0;
     }
-    case 69: { // E
+    case 'E': {
       SendMessage(hwnd, WM_COMMAND, C_CMD_ERASER, 0);
       return 0;
     }
@@ -498,7 +498,8 @@ int WINAPI WinMain(HINSTANCE hi, HINSTANCE hp, LPSTR cl, int cs) {
   wc.lpszMenuName = NULL;
   wc.lpszClassName = C_WINDOW_CLASS;
   wc.hIconSm = (HICON)LoadImage(hi, TEXT("C_APPICON"), IMAGE_ICON, 0, 0, LR_DEFAULTCOLOR);
-  if (RegisterClassEx(&wc) == 0) return 1;
+  // WinMain() must return 0 before msg loop
+  if (RegisterClassEx(&wc) == 0) return 0;
 
   // Main Window: Create, Show
   HWND hwnd = CreateWindowEx(
@@ -510,7 +511,8 @@ int WINAPI WinMain(HINSTANCE hi, HINSTANCE hp, LPSTR cl, int cs) {
     C_SCHEIGHT,
     NULL, NULL, hi, NULL
   );
-  if (hwnd == NULL) return 1;
+  // WinMain() must return 0 before msg loop
+  if (hwnd == NULL) return 0;
 
   // main
   MSG msg;
