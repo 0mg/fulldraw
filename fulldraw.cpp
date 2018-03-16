@@ -210,7 +210,6 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       ScreenToClient(hwnd, &point);
       dwpa_mouse.movePoint(point.x, point.y);
       dwpa_mouse.pressure = dwpa.PRS_INDE * 3;
-      SetCapture(hwnd);
     }
     return 0;
   }
@@ -244,8 +243,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     GetPointerPenInfo(GET_POINTERID_WPARAM(wp), &penInfo);
     if (penInfo.pointerInfo.pointerType == PT_MOUSE) {
       // WM_LBUTTONUP
-      dwpa_mouse.pressure = 0; // for mouse
-      ReleaseCapture();
+      dwpa_mouse.pressure = 0;
     }
     return 0;
   }
@@ -332,7 +330,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   }
   case WM_ACTIVATE: {
     if (LOWORD(wp) == WA_INACTIVE) {
-      dwpa_mouse.pressure = 0;
+      dwpa_mouse.pressure = 0; // on Windows start menu
       SetWindowLongPtr(hwnd, GWL_EXSTYLE, WS_EX_LEFT);
       SetWindowPos(hwnd, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
     } else {
