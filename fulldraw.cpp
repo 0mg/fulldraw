@@ -268,6 +268,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       C_APPNAME, MB_OKCANCEL | MB_ICONQUESTION) == IDOK) {
         dcb1.cls();
         InvalidateRect(hwnd, NULL, FALSE);
+        UpdateWindow(hwnd);
       }
       return 0;
     }
