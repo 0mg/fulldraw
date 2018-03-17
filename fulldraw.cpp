@@ -143,11 +143,10 @@ private:
     return CreateCursor(GetModuleHandle(NULL), x, y, w, h, band, bxor);
   }
 public:
+  HCURSOR current;
   BOOL setCursor(HWND hwnd, DrawParams &dwpa) {
-    HCURSOR cursor = create(hwnd, dwpa);
-    HCURSOR old = (HCURSOR)GetClassLongPtr(hwnd, GCLP_HCURSOR);
-    SetClassLongPtr(hwnd, GCL_HCURSOR, (LONG)cursor);
-    SetCursor(cursor);
+    current = create(hwnd, dwpa);
+    HCURSOR old = SetCursor(current);
     DestroyCursor(old);
     return 0;
   }
@@ -260,6 +259,15 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     EndPaint(hwnd, &ps);
     return 0;
   }
+  case WM_SETCURSOR: {
+    #ifdef dev
+    touf("setCURSOR: %8d %8d", HIWORD(lp), LOWORD(lp));
+    #endif
+    if (LOWORD(lp) == HTCLIENT) {
+      SetCursor(cursor.current);
+    } else break;
+    return 0;
+  }
   case WM_POINTERDOWN: {
     POINTER_PEN_INFO penInfo;
     GetPointerPenInfo(GET_POINTERID_WPARAM(wp), &penInfo);
@@ -291,7 +299,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       dwpa.movePoint(point.x, point.y);
       if (!penInfo.pressure) {
         // Sometimes, Windows doesn't set cursor
-        cursor.setCursor(hwnd, dwpa);
+        SetCursor(cursor.current);
         return 0;
       }
       dwpa.pressure = penInfo.pressure;
@@ -458,7 +466,7 @@ int WINAPI WinMain(HINSTANCE hi, HINSTANCE hp, LPSTR cl, int cs) {
   wc.hbrBackground = (HBRUSH)GetStockObject(LTGRAY_BRUSH);
   wc.lpszMenuName = NULL;
   wc.lpszClassName = C_WINDOW_CLASS;
-  wc.hIconSm = (HICON)LoadImage(hi, TEXT("C_APPICON"), IMAGE_ICON, 0, 0, LR_DEFAULTCOLOR);
+  wc.hIconSm = NULL;
   // WinMain() must return 0 before msg loop
   if (RegisterClassEx(&wc) == 0) return 0;
 
