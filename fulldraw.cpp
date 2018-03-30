@@ -145,9 +145,6 @@ int drawRender(HWND hwnd, DCBuffer &dcb1, DrawParams &dwpa) {
   int oldx = dwpa.oldx, oldy = dwpa.oldy, x = dwpa.x, y = dwpa.y;
   if (pressure > presmax) pressure = presmax;
   pensize = pressure * penmax / presmax;
-  if (!pensize) {
-    return 0; // DrawLine() draws 1px line if pensize=0
-  }
   Pen pen2(C_FGCOLOR, pensize);
   pen2.SetStartCap(LineCapRound);
   pen2.SetEndCap(LineCapRound);
@@ -159,6 +156,7 @@ int drawRender(HWND hwnd, DCBuffer &dcb1, DrawParams &dwpa) {
     Graphics buffer(dcb1.dc);
     Graphics *gpctx = i ? &buffer : &screen;
     gpctx->SetSmoothingMode(SmoothingModeAntiAlias);
+    // DrawLine() draws 1px line if pensize=0
     gpctx->DrawLine(&pen2, oldx, oldy, x, y);
   }
   return 0;
@@ -230,6 +228,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       drawRender(hwnd, dcb1, dwpa);
     } else {
       // WM_MOUSEMOVE
+      if (!dwpa_mouse.pressure) return 0;
       dwpa_mouse.movePoint(point.x, point.y);
       dwpa_mouse.penmax = dwpa.penmax;
       dwpa_mouse.presmax = dwpa.presmax;
