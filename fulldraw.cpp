@@ -186,7 +186,7 @@ void createDebugWindow(HWND parent) {
 }
 #endif
 // C_CMD_DRAW v2.0
-int drawRender(HWND hwnd, DCBuffer &dcb1, DrawParams &dwpa) {
+int drawRender(HWND hwnd, DCBuffer &dcb1, DrawParams &dwpa, BOOL dot) {
   // draw line
   int pensize;
   int pressure = dwpa.pressure;
@@ -195,7 +195,7 @@ int drawRender(HWND hwnd, DCBuffer &dcb1, DrawParams &dwpa) {
   int oldx = dwpa.oldx, oldy = dwpa.oldy, x = dwpa.x, y = dwpa.y;
   if (pressure > presmax) pressure = presmax;
   pensize = pressure * penmax / presmax;
-  Pen pen2(C_FGCOLOR, pensize);
+  Pen pen2(C_FGCOLOR, pensize); // Pen draws 1px line if pensize=0
   pen2.SetStartCap(LineCapRound);
   pen2.SetEndCap(LineCapRound);
   if (dwpa.eraser) {
@@ -206,8 +206,11 @@ int drawRender(HWND hwnd, DCBuffer &dcb1, DrawParams &dwpa) {
     Graphics buffer(dcb1.dc);
     Graphics *gpctx = i ? &buffer : &screen;
     gpctx->SetSmoothingMode(SmoothingModeAntiAlias);
-    // DrawLine() draws 1px line if pensize=0
-    gpctx->DrawLine(&pen2, oldx, oldy, x, y);
+    if (dot) {
+      gpctx->DrawLine(&pen2, (float)x - 0.1, (float)y, (float)x, (float)y);
+    } else {
+      gpctx->DrawLine(&pen2, oldx, oldy, x, y);
+    }
   }
   return 0;
 }
@@ -269,17 +272,32 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   case WM_POINTERDOWN: {
     POINTER_PEN_INFO penInfo;
     GetPointerPenInfo(GET_POINTERID_WPARAM(wp), &penInfo);
-    if (penInfo.pointerInfo.pointerType == PT_MOUSE) {
+    POINT point = {GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
+    ScreenToClient(hwnd, &point);
+    if (penInfo.pointerInfo.pointerType == PT_PEN) {
+      // draw dot
+      DrawParams dwp2;
+      dwp2.init();
+      dwp2.movePoint(point.x, point.y);
+      dwp2.pressure = penInfo.pressure;
+      dwp2.eraser = !!(penInfo.penFlags & PEN_FLAG_ERASER);
+      dwp2.penmax = dwpa.penmax;
+      dwp2.presmax = dwpa.presmax;
+      dwp2.eraser = dwpa.eraser;
+      drawRender(hwnd, dcb1, dwp2, 1);
+    } else if (penInfo.pointerInfo.pointerType == PT_MOUSE) {
       // WM_RBUTTONDOWN
       if (IS_POINTER_SECONDBUTTON_WPARAM(wp)) {
         PostMessage(hwnd, WM_CONTEXTMENU, wp, lp);
         return 0;
       }
       // WM_LBUTTONDOWN
-      POINT point = {GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
-      ScreenToClient(hwnd, &point);
       dwpa_mouse.movePoint(point.x, point.y);
       dwpa_mouse.pressure = dwpa.PRS_INDE * 3;
+      dwpa_mouse.penmax = dwpa.penmax;
+      dwpa_mouse.presmax = dwpa.presmax;
+      dwpa_mouse.eraser = dwpa.eraser;
+      drawRender(hwnd, dcb1, dwpa_mouse, 1);
     }
     return 0;
   }
@@ -302,15 +320,12 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       }
       dwpa.pressure = penInfo.pressure;
       dwpa.eraser = !!(penInfo.penFlags & PEN_FLAG_ERASER);
-      drawRender(hwnd, dcb1, dwpa);
+      drawRender(hwnd, dcb1, dwpa, 0);
     } else {
       // WM_MOUSEMOVE
       if (!dwpa_mouse.pressure) return 0;
       dwpa_mouse.movePoint(point.x, point.y);
-      dwpa_mouse.penmax = dwpa.penmax;
-      dwpa_mouse.presmax = dwpa.presmax;
-      dwpa_mouse.eraser = dwpa.eraser;
-      drawRender(hwnd, dcb1, dwpa_mouse);
+      drawRender(hwnd, dcb1, dwpa_mouse, 0);
     }
     return 0;
   }
