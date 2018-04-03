@@ -1,14 +1,23 @@
+#pragma code_page(65001)
 #include <windows.h>
 #include "fulldraw.h"
 
 C_APPICON ICON "fulldraw.ico"
 
 C_CTXMENU MENU {
-  POPUP "0" {
+  POPUP "all" {
     MENUITEM "eraser\tE", C_CMD_ERASER
+    POPUP "pen" {
+      MENUITEM "size up\t↑", C_CMD_PEN_IN
+      MENUITEM "size down\t↓", C_CMD_PEN_DE
+      MENUITEM "hardness up\t→", C_CMD_PRS_IN
+      MENUITEM "hardness down\t←", C_CMD_PRS_DE
+    }
+    MENUITEM SEPARATOR
     MENUITEM "refresh\tF5", C_CMD_REFRESH
-    MENUITEM "clear\tDel", C_CMD_CLEAR
     MENUITEM "minimize\tCtrl+M", C_CMD_MINIMIZE
+    MENUITEM SEPARATOR
+    MENUITEM "clear\tDel", C_CMD_CLEAR
     MENUITEM "exit\tEsc", C_CMD_EXIT
   }
 }

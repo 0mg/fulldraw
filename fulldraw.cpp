@@ -357,6 +357,30 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       dwpa_mouse.eraser = dwpa.eraser;
       return 0;
     }
+    case C_CMD_PEN_DE: {
+      dwpa.penmax -= dwpa.PEN_INDE;
+      dwpa.updatePenPres();
+      cursor.setCursor(hwnd, dwpa);
+      return 0;
+    }
+    case C_CMD_PEN_IN: {
+      dwpa.penmax += dwpa.PEN_INDE;
+      dwpa.updatePenPres();
+      cursor.setCursor(hwnd, dwpa);
+      return 0;
+    }
+    case C_CMD_PRS_DE: {
+      dwpa.presmax -= dwpa.PRS_INDE;
+      dwpa.updatePenPres();
+      cursor.setCursor(hwnd, dwpa);
+      return 0;
+    }
+    case C_CMD_PRS_IN: {
+      dwpa.presmax += dwpa.PRS_INDE;
+      dwpa.updatePenPres();
+      cursor.setCursor(hwnd, dwpa);
+      return 0;
+    }
     }
     return 0;
   }
@@ -382,27 +406,19 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       return 0;
     }
     case VK_DOWN: {
-      dwpa.penmax -= dwpa.PEN_INDE;
-      dwpa.updatePenPres();
-      cursor.setCursor(hwnd, dwpa);
+      SendMessage(hwnd, WM_COMMAND, C_CMD_PEN_DE, 0);
       return 0;
     }
     case VK_UP: {
-      dwpa.penmax += dwpa.PEN_INDE;
-      dwpa.updatePenPres();
-      cursor.setCursor(hwnd, dwpa);
+      SendMessage(hwnd, WM_COMMAND, C_CMD_PEN_IN, 0);
       return 0;
     }
     case VK_LEFT: {
-      dwpa.presmax -= dwpa.PRS_INDE;
-      dwpa.updatePenPres();
-      cursor.setCursor(hwnd, dwpa);
+      SendMessage(hwnd, WM_COMMAND, C_CMD_PRS_DE, 0);
       return 0;
     }
     case VK_RIGHT: {
-      dwpa.presmax += dwpa.PRS_INDE;
-      dwpa.updatePenPres();
-      cursor.setCursor(hwnd, dwpa);
+      SendMessage(hwnd, WM_COMMAND, C_CMD_PRS_IN, 0);
       return 0;
     }
     }
