@@ -288,8 +288,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     } else if (penInfo.pointerInfo.pointerType == PT_MOUSE) {
       // WM_RBUTTONDOWN
       if (IS_POINTER_SECONDBUTTON_WPARAM(wp)) {
-        PostMessage(hwnd, WM_CONTEXTMENU, wp, lp);
-        return 0;
+        break; // pop context menu up
       }
       // WM_LBUTTONDOWN
       dwpa_mouse.movePoint(point.x, point.y);
