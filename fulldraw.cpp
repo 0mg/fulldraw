@@ -237,8 +237,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       dwpa.movePoint(point.x, point.y);
       if (!penInfo.pressure) {
         // Sometimes, Windows doesn't set cursor
-        cursor.setCursor(hwnd, dwpa);
-        return 0;
+        break;
       }
       dwpa.pressure = penInfo.pressure;
       dwpa.eraser = !!(penInfo.penFlags & PEN_FLAG_ERASER);
