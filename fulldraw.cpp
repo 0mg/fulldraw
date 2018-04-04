@@ -230,7 +230,6 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   for (;i-- > 1;) mss[i] = mss[i - 1];
   mss[i] = msg;
   touf2("[%x,%x] %x > %x > %x > %x > %x > %x > %x > %x > %x > %x > %x > %x > %x > %x > %x > %x", lp, wp, mss[0], mss[1], mss[2], mss[3], mss[4], mss[5], mss[6], mss[7], mss[8], mss[9], mss[10], mss[11], mss[12], mss[13], mss[14], mss[15]);
-  touf3("[%d] gdi:%d", GetTickCount(), GetGuiResources(GetCurrentProcess(), GR_GDIOBJECTS));
   #endif
   switch (msg) {
   case WM_CREATE: {
@@ -300,9 +299,9 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     POINT point = {GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
     ScreenToClient(hwnd, &point);
     #ifdef dev
-    touf("[%d] prs:%d, penmax:%d, presmax:%d",
-      GetTickCount(), dwpa.pressure,
-      dwpa.penmax, dwpa.presmax);
+    touf("[%d] gdi:%d, prs:%d, penmax:%d, presmax:%d",
+      GetTickCount(), GetGuiResources(GetCurrentProcess(), GR_GDIOBJECTS),
+      dwpa.pressure, dwpa.penmax, dwpa.presmax);
     #endif
     if (penInfo.pointerInfo.pointerType == PT_PEN) {
       dwpa.movePoint(point.x, point.y);
@@ -488,7 +487,7 @@ int WINAPI WinMain(HINSTANCE hi, HINSTANCE hp, LPSTR cl, int cs) {
   wc.hbrBackground = (HBRUSH)GetStockObject(LTGRAY_BRUSH);
   wc.lpszMenuName = NULL;
   wc.lpszClassName = C_WINDOW_CLASS;
-  wc.hIconSm = NULL;
+  wc.hIconSm = (HICON)LoadImage(hi, TEXT("C_APPICON"), IMAGE_ICON, 0, 0, LR_DEFAULTCOLOR);
   // WinMain() must return 0 before msg loop
   if (RegisterClassEx(&wc) == 0) return 0;
 
