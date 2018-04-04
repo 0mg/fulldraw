@@ -5,12 +5,14 @@ using namespace Gdiplus;
 
 #include "fulldraw.h"
 
+// defs that *.rc never call
 #define C_APPNAME TEXT("fulldraw")
 #define C_WINDOW_CLASS TEXT("fulldraw_window_class")
 #define C_SCWIDTH GetSystemMetrics(SM_CXSCREEN)
 #define C_SCHEIGHT GetSystemMetrics(SM_CYSCREEN)
 #define C_FGCOLOR Color(255, 0, 0, 0)
 #define C_BGCOLOR Color(255, 255, 255, 255)
+#define C_DR_DOT 1
 
 void __start__() {
   // program will start from here if `gcc -nostartfiles`
@@ -187,7 +189,7 @@ void createDebugWindow(HWND parent) {
 }
 #endif
 // C_CMD_DRAW v2.0
-int drawRender(HWND hwnd, DCBuffer &dcb1, DrawParams &dwpa, BOOL dot) {
+int drawRender(HWND hwnd, DCBuffer &dcb1, DrawParams &dwpa, BOOL dot = 0) {
   // draw line
   int pensize;
   int pressure = dwpa.pressure;
@@ -276,7 +278,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       dwp2.penmax = dwpa.penmax;
       dwp2.presmax = dwpa.presmax;
       dwp2.eraser = dwpa.eraser;
-      drawRender(hwnd, dcb1, dwp2, 1);
+      drawRender(hwnd, dcb1, dwp2, C_DR_DOT);
     } else if (penInfo.pointerInfo.pointerType == PT_MOUSE) {
       // WM_RBUTTONDOWN
       if (IS_POINTER_SECONDBUTTON_WPARAM(wp)) {
@@ -288,7 +290,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       dwpa_mouse.penmax = dwpa.penmax;
       dwpa_mouse.presmax = dwpa.presmax;
       dwpa_mouse.eraser = dwpa.eraser;
-      drawRender(hwnd, dcb1, dwpa_mouse, 1);
+      drawRender(hwnd, dcb1, dwpa_mouse, C_DR_DOT);
     }
     return 0;
   }
@@ -310,12 +312,12 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       }
       dwpa.pressure = penInfo.pressure;
       dwpa.eraser = !!(penInfo.penFlags & PEN_FLAG_ERASER);
-      drawRender(hwnd, dcb1, dwpa, 0);
+      drawRender(hwnd, dcb1, dwpa);
     } else {
       // WM_MOUSEMOVE
       if (!dwpa_mouse.pressure) return 0;
       dwpa_mouse.movePoint(point.x, point.y);
-      drawRender(hwnd, dcb1, dwpa_mouse, 0);
+      drawRender(hwnd, dcb1, dwpa_mouse);
     }
     return 0;
   }
