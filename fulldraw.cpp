@@ -222,6 +222,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   static DrawParams dwpa;
   static DrawParams dwpa_mouse;
   static DCBuffer dcb1;
+  static BOOL nodraw = FALSE; // no draw dot on activated window by click
   static HMENU menu;
   static HMENU popup;
   #ifdef dev
@@ -269,6 +270,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     ScreenToClient(hwnd, &point);
     if (penInfo.pointerInfo.pointerType == PT_PEN) {
       // draw dot
+      if (nodraw) return 0;
       DrawParams dwp2;
       dwp2.init();
       dwp2.movePoint(point.x, point.y);
@@ -309,6 +311,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         // Sometimes, Windows doesn't set cursor
         break;
       }
+      if (nodraw) return 0;
       dwpa.pressure = penInfo.pressure;
       dwpa.eraser = !!(penInfo.penFlags & PEN_FLAG_ERASER);
       drawRender(hwnd, dcb1, dwpa);
@@ -327,6 +330,11 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       // WM_LBUTTONUP
       dwpa_mouse.pressure = 0;
     }
+    nodraw = FALSE;
+    return 0;
+  }
+  case WM_NCPOINTERUP: {
+    nodraw = FALSE;
     return 0;
   }
   case WM_CONTEXTMENU: { // WM_CONTEXTMENU's lp is [screen x,y]
@@ -447,6 +455,13 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     touf("%d,%d", LOWORD(wp), GetTickCount());
     #endif
     return 0;
+  }
+  case WM_MOUSEACTIVATE: {
+    return MA_ACTIVATEANDEAT; // nodraw = TRUE for mouse
+  }
+  case WM_POINTERACTIVATE: {
+    nodraw = TRUE;
+    return PA_ACTIVATE;
   }
   case WM_CLOSE: {
     #ifdef dev
