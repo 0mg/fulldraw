@@ -143,10 +143,11 @@ private:
     return CreateCursor(GetModuleHandle(NULL), x, y, w, h, band, bxor);
   }
 public:
-  HCURSOR current;
   BOOL setCursor(HWND hwnd, DrawParams &dwpa) {
-    current = create(hwnd, dwpa);
-    HCURSOR old = SetCursor(current);
+    HCURSOR cursor = create(hwnd, dwpa);
+    HCURSOR old = (HCURSOR)GetClassLongPtr(hwnd, GCLP_HCURSOR);
+    SetClassLongPtr(hwnd, GCL_HCURSOR, (LONG)cursor);
+    SetCursor(cursor);
     DestroyCursor(old);
     return 0;
   }
@@ -260,15 +261,6 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     EndPaint(hwnd, &ps);
     return 0;
   }
-  case WM_SETCURSOR: {
-    #ifdef dev
-    touf("setCURSOR: %8d %8d", HIWORD(lp), LOWORD(lp));
-    #endif
-    if (LOWORD(lp) == HTCLIENT) {
-      SetCursor(cursor.current);
-    } else break;
-    return 0;
-  }
   case WM_POINTERDOWN: {
     POINTER_PEN_INFO penInfo;
     GetPointerPenInfo(GET_POINTERID_WPARAM(wp), &penInfo);
@@ -314,8 +306,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       dwpa.movePoint(point.x, point.y);
       if (!penInfo.pressure) {
         // Sometimes, Windows doesn't set cursor
-        SetCursor(cursor.current);
-        return 0;
+        break;
       }
       dwpa.pressure = penInfo.pressure;
       dwpa.eraser = !!(penInfo.penFlags & PEN_FLAG_ERASER);
