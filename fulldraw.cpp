@@ -297,6 +297,23 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       CloseWindow(hwnd);
       return 0;
     }
+    case C_CMD_VERSION: {
+      static TCHAR vertxt[100];
+      wsprintf(vertxt, TEXT("%s v%d.%d.%d.%d"), C_APPNAME, C_APPVER);
+      MSGBOXPARAMS mbpa;
+      mbpa.cbSize = sizeof(MSGBOXPARAMS);
+      mbpa.hwndOwner = hwnd;
+      mbpa.hInstance = GetModuleHandle(NULL);
+      mbpa.lpszText = vertxt;
+      mbpa.lpszCaption = TEXT("version");
+      mbpa.dwStyle = MB_USERICON;
+      mbpa.lpszIcon = MAKEINTRESOURCE(C_APPICON);
+      mbpa.dwContextHelpId = 0;
+      mbpa.lpfnMsgBoxCallback = NULL;
+      mbpa.dwLanguageId = LANG_JAPANESE;
+      MessageBoxIndirect(&mbpa);
+      return 0;
+    }
     case C_CMD_ERASER: {
       dwpa.eraser = !dwpa.eraser;
       dwpa_mouse.eraser = dwpa.eraser;
@@ -423,13 +440,10 @@ int WINAPI WinMain(HINSTANCE hi, HINSTANCE hp, LPSTR cl, int cs) {
   // WinMain() must return 0 before msg loop
   if (RegisterClassEx(&wc) == 0) return 0;
 
-  TCHAR title[100];
-  wsprintf(title, TEXT("%s v%d.%d.%d.%d"), C_APPNAME, C_APPVER);
-
   // Main Window: Create, Show
   HWND hwnd = CreateWindowEx(
     WS_EX_TOPMOST,
-    wc.lpszClassName, title,
+    wc.lpszClassName, C_APPNAME,
     WS_VISIBLE | WS_SYSMENU | WS_POPUP,
     0, 0,
     C_SCWIDTH,

@@ -4,6 +4,7 @@
 #define C_APPICON 0xA1C0
 #define C_APPVER 0,5,5,0
 #define C_CTXMENU 0xC07E
+#define C_CMD_VERSION 0x5E75
 #define C_CMD_REFRESH 0xAB32
 #define C_CMD_CLEAR 0x000C
 #define C_CMD_MINIMIZE 0x2130
