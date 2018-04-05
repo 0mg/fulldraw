@@ -6,7 +6,6 @@ using namespace Gdiplus;
 #include "fulldraw.h"
 
 // defs that *.rc never call
-#define C_APPNAME TEXT("fulldraw")
 #define C_WINDOW_CLASS TEXT("fulldraw_window_class")
 #define C_SCWIDTH GetSystemMetrics(SM_CXSCREEN)
 #define C_SCHEIGHT GetSystemMetrics(SM_CYSCREEN)
@@ -184,7 +183,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     // cursor
     cursor.setCursor(hwnd, dwpa);
     // menu
-    menu = LoadMenu(GetModuleHandle(NULL), TEXT("C_CTXMENU"));
+    menu = LoadMenu(GetModuleHandle(NULL), MAKEINTRESOURCE(C_CTXMENU));
     popup = GetSubMenu(menu, 0);
     // post WM_POINTERXXX on mouse move
     EnableMouseInPointer(TRUE);
@@ -415,19 +414,22 @@ int WINAPI WinMain(HINSTANCE hi, HINSTANCE hp, LPSTR cl, int cs) {
   wc.cbClsExtra = 0;
   wc.cbWndExtra = 0;
   wc.hInstance = hi;
-  wc.hIcon = (HICON)LoadImage(hi, TEXT("C_APPICON"), IMAGE_ICON, 0, 0, LR_DEFAULTCOLOR);
+  wc.hIcon = (HICON)LoadImage(hi, MAKEINTRESOURCE(C_APPICON), IMAGE_ICON, 0, 0, LR_DEFAULTCOLOR);
   wc.hCursor = (HCURSOR)LoadImage(NULL, IDC_ARROW, IMAGE_CURSOR, 0, 0, LR_SHARED);
   wc.hbrBackground = (HBRUSH)GetStockObject(LTGRAY_BRUSH);
   wc.lpszMenuName = NULL;
   wc.lpszClassName = C_WINDOW_CLASS;
-  wc.hIconSm = (HICON)LoadImage(hi, TEXT("C_APPICON"), IMAGE_ICON, 0, 0, LR_DEFAULTCOLOR);
+  wc.hIconSm = (HICON)LoadImage(hi, MAKEINTRESOURCE(C_APPICON), IMAGE_ICON, 0, 0, LR_DEFAULTCOLOR);
   // WinMain() must return 0 before msg loop
   if (RegisterClassEx(&wc) == 0) return 0;
+
+  TCHAR title[100];
+  wsprintf(title, TEXT("%s v%d.%d.%d.%d"), C_APPNAME, C_APPVER);
 
   // Main Window: Create, Show
   HWND hwnd = CreateWindowEx(
     WS_EX_TOPMOST,
-    wc.lpszClassName, C_APPNAME,
+    wc.lpszClassName, title,
     WS_VISIBLE | WS_SYSMENU | WS_POPUP,
     0, 0,
     C_SCWIDTH,

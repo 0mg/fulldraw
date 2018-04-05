@@ -1,4 +1,9 @@
+#include <windows.h>
 // common defs (used by *.cpp and *.rc)
+#define C_APPNAME TEXT("fulldraw")
+#define C_APPICON 0xA1C0
+#define C_APPVER 0,5,5,0
+#define C_CTXMENU 0xC07E
 #define C_CMD_REFRESH 0xAB32
 #define C_CMD_CLEAR 0x000C
 #define C_CMD_MINIMIZE 0x2130
