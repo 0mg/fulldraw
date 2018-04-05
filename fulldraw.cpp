@@ -36,6 +36,27 @@ void tou(LPTSTR str, HDC hdc, HWND hwnd, int bottom) {
 #define touf4(f,...) wsprintf(ss,TEXT(f),__VA_ARGS__),tou(ss,ddcc,chwnd,3)
 #define mboxf(f,...) wsprintf(ss,TEXT(f),__VA_ARGS__),MessageBox(NULL,ss,ss,0)
 #endif
+class Buffer {
+public:
+  void *data;
+  BOOL alloc(SIZE_T size) {
+    data = NULL;
+    HANDLE heap = GetProcessHeap();
+    if (heap == NULL) return FALSE;
+    data = HeapAlloc(heap, HEAP_ZERO_MEMORY, size);
+    return data != NULL;
+  }
+  BOOL free() {
+    HANDLE heap = GetProcessHeap();
+    if (heap == NULL) return FALSE;
+    if (HeapFree(heap, 0, data)) {
+      data = NULL;
+      return TRUE;
+    }
+    return FALSE;
+  }
+};
+
 class DCBuffer {
 public:
   HDC dc;
