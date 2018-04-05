@@ -23,11 +23,11 @@ C_CTXMENU MENU {
 }
 
 VS_VERSION_INFO VERSIONINFO 
-FILEVERSION 0,5,4,0
+FILEVERSION C_APPVER
 FILETYPE VFT_APP {
   BLOCK "StringFileInfo" {
     BLOCK "041103A4" {
-      VALUE "FileDescription", "fulldraw"
+      VALUE "FileDescription", C_APPNAME
     }
   }
   BLOCK "VarFileInfo" {
