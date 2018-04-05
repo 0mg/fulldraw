@@ -308,6 +308,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         break; // pop context menu up
       }
       // WM_LBUTTONDOWN
+      if (nodraw) return 0;
       dwpa_mouse.movePoint(point.x, point.y);
       dwpa_mouse.pressure = dwpa.PRS_INDE * 3;
       dwpa_mouse.penmax = dwpa.penmax;
@@ -496,7 +497,8 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     return 0;
   }
   case WM_MOUSEACTIVATE: {
-    return MA_ACTIVATEANDEAT; // nodraw = TRUE for mouse
+    nodraw = TRUE;
+    return MA_ACTIVATE;
   }
   case WM_POINTERACTIVATE: {
     nodraw = TRUE;
