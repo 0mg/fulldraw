@@ -330,9 +330,9 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     POINT point = {GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
     ScreenToClient(hwnd, &point);
     #ifdef dev
-    touf("[%d] gdi:%d, prs:%d, penmax:%d, presmax:%d",
+    touf("[%d] gdi:%d, prs:%d, penmax:%d, presmax:%d, device: %d",
       GetTickCount(), GetGuiResources(GetCurrentProcess(), GR_GDIOBJECTS),
-      dwpa.pressure, dwpa.penmax, dwpa.presmax);
+      dwpa.pressure, dwpa.penmax, dwpa.presmax, device);
     #endif
     switch (device) {
     case PT_PEN: {
