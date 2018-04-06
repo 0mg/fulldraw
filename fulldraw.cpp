@@ -1,3 +1,4 @@
+#define dev
 #include <windows.h>
 #include <windowsx.h>
 #include <gdiplus.h>
@@ -204,7 +205,7 @@ void createDebugWindow(HWND parent) {
     MessageBox(NULL, TEXT("failed: child win class"), NULL, MB_OK);
     return;
   }
-  chwnd = CreateWindow(wc.lpszClassName, C_APPNAME, WS_VISIBLE,
+  chwnd = CreateWindow(wc.lpszClassName, C_APPNAME_STR, WS_VISIBLE,
     0, 600, C_SCWIDTH, 120, parent, NULL, NULL, NULL);
 }
 #endif
