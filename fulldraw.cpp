@@ -177,7 +177,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   case WM_CREATE: {
     // x, y
     dwpa.init();
-    dwpa_mouse.init();
+    dwpa_mouse = dwpa;
     // ready bitmap buffer
     dcb1.init(hwnd);
     // cursor
@@ -200,67 +200,91 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     return 0;
   }
   case WM_POINTERDOWN: {
-    POINTER_PEN_INFO penInfo;
-    GetPointerPenInfo(GET_POINTERID_WPARAM(wp), &penInfo);
+    POINTER_INPUT_TYPE device;
+    GetPointerType(GET_POINTERID_WPARAM(wp), &device);
     POINT point = {GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
     ScreenToClient(hwnd, &point);
-    if (penInfo.pointerInfo.pointerType == PT_PEN) {
+    if (nodraw) return 0; // no need to movePoint()
+    switch (device) {
+    case PT_PEN: {
+      // WM_PEN_TAP
+      POINTER_PEN_INFO penInfo;
+      GetPointerPenInfo(GET_POINTERID_WPARAM(wp), &penInfo);
       // draw dot
-      if (nodraw) return 0;
-      DrawParams dwp2;
-      dwp2.init();
+      DrawParams dwp2 = dwpa;
       dwp2.movePoint(point.x, point.y);
       dwp2.pressure = penInfo.pressure;
       dwp2.eraser = !!(penInfo.penFlags & PEN_FLAG_ERASER);
-      dwp2.penmax = dwpa.penmax;
-      dwp2.presmax = dwpa.presmax;
-      dwp2.eraser = dwpa.eraser;
       drawRender(hwnd, dcb1, dwp2, C_DR_DOT);
-    } else if (penInfo.pointerInfo.pointerType == PT_MOUSE) {
-      // WM_RBUTTONDOWN
-      if (IS_POINTER_SECONDBUTTON_WPARAM(wp)) {
-        break; // pop context menu up
+      break;
+    }
+    case PT_TOUCHPAD: // same to PT_MOUSE
+    case PT_MOUSE: {
+      if (IS_POINTER_FIRSTBUTTON_WPARAM(wp)) {
+        // WM_LBUTTONDOWN
+        dwpa_mouse.movePoint(point.x, point.y);
+        dwpa_mouse.pressure = dwpa.PRS_INDE * 3;
+        dwpa_mouse.penmax = dwpa.penmax;
+        dwpa_mouse.presmax = dwpa.presmax;
+        dwpa_mouse.eraser = dwpa.eraser;
+        drawRender(hwnd, dcb1, dwpa_mouse, C_DR_DOT);
+      } else {
+        // WM_RBUTTONDOWN_OR_OTHER_BUTTONDOWN
+        goto end; // default action (e.g. pop context menu up)
       }
-      // WM_LBUTTONDOWN
-      if (nodraw) return 0;
-      dwpa_mouse.movePoint(point.x, point.y);
-      dwpa_mouse.pressure = dwpa.PRS_INDE * 3;
-      dwpa_mouse.penmax = dwpa.penmax;
-      dwpa_mouse.presmax = dwpa.presmax;
-      dwpa_mouse.eraser = dwpa.eraser;
-      drawRender(hwnd, dcb1, dwpa_mouse, C_DR_DOT);
+      break;
+    }
     }
     return 0;
   }
   case WM_POINTERUPDATE: {
-    POINTER_PEN_INFO penInfo;
-    GetPointerPenInfo(GET_POINTERID_WPARAM(wp), &penInfo);
+    POINTER_INPUT_TYPE device;
+    GetPointerType(GET_POINTERID_WPARAM(wp), &device);
     POINT point = {GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
     ScreenToClient(hwnd, &point);
-    if (penInfo.pointerInfo.pointerType == PT_PEN) {
-      dwpa.movePoint(point.x, point.y);
-      if (!penInfo.pressure) {
-        // Sometimes, Windows doesn't set cursor
-        break;
-      }
-      if (nodraw) return 0;
+    switch (device) {
+    case PT_PEN: {
+      // WM_PENMOVE
+      POINTER_PEN_INFO penInfo;
+      GetPointerPenInfo(GET_POINTERID_WPARAM(wp), &penInfo);
+      dwpa.movePoint(point.x, point.y); // do everytime
       dwpa.pressure = penInfo.pressure;
       dwpa.eraser = !!(penInfo.penFlags & PEN_FLAG_ERASER);
-      drawRender(hwnd, dcb1, dwpa);
-    } else {
+      if (!penInfo.pressure) { // need to set cursor on some good time
+        goto end; // set cursor
+      }
+      if (nodraw) return 0;
+      if (penInfo.pressure) {
+        drawRender(hwnd, dcb1, dwpa);
+      }
+      break;
+    }
+    case PT_TOUCHPAD: // same to PT_MOUSE
+    case PT_MOUSE: {
       // WM_MOUSEMOVE
-      if (!dwpa_mouse.pressure) return 0;
-      dwpa_mouse.movePoint(point.x, point.y);
-      drawRender(hwnd, dcb1, dwpa_mouse);
+      dwpa_mouse.movePoint(point.x, point.y); // do everytime
+      dwpa_mouse.penmax = dwpa.penmax;
+      dwpa_mouse.presmax = dwpa.presmax;
+      dwpa_mouse.eraser = dwpa.eraser;
+      if (nodraw) return 0;
+      if (dwpa_mouse.pressure) {
+        drawRender(hwnd, dcb1, dwpa_mouse);
+      }
+      break;
+    }
     }
     return 0;
   }
   case WM_POINTERUP: {
-    POINTER_PEN_INFO penInfo;
-    GetPointerPenInfo(GET_POINTERID_WPARAM(wp), &penInfo);
-    if (penInfo.pointerInfo.pointerType == PT_MOUSE) {
+    POINTER_INPUT_TYPE device;
+    GetPointerType(GET_POINTERID_WPARAM(wp), &device);
+    switch (device) {
+    case PT_TOUCHPAD: // same to PT_MOUSE
+    case PT_MOUSE: {
       // WM_LBUTTONUP
       dwpa_mouse.pressure = 0;
+      break;
+    }
     }
     nodraw = FALSE;
     return 0;
@@ -317,7 +341,6 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     }
     case C_CMD_ERASER: {
       dwpa.eraser = !dwpa.eraser;
-      dwpa_mouse.eraser = dwpa.eraser;
       return 0;
     }
     case C_CMD_PEN_DE: {
@@ -416,6 +439,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     break;
   }
   }
+  end:
   return DefWindowProc(hwnd, msg, wp, lp);
 }
 
