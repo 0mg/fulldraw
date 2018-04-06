@@ -287,7 +287,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     }
     case C_CMD_CLEAR: {
       if (MessageBox(hwnd, TEXT("clear?"),
-      C_APPNAME, MB_OKCANCEL | MB_ICONQUESTION) == IDOK) {
+      C_APPNAME_STR, MB_OKCANCEL | MB_ICONQUESTION) == IDOK) {
         dcb1.cls();
         InvalidateRect(hwnd, NULL, FALSE);
         UpdateWindow(hwnd);
@@ -299,8 +299,8 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       return 0;
     }
     case C_CMD_VERSION: {
-      static TCHAR vertxt[100];
-      wsprintf(vertxt, TEXT("%s v%d.%d.%d.%d"), C_APPNAME, C_APPVER);
+      TCHAR vertxt[100];
+      wsprintf(vertxt, TEXT("%s v%d.%d.%d.%d"), C_APPNAME_STR, C_APPVER);
       MSGBOXPARAMS mbpa;
       mbpa.cbSize = sizeof(MSGBOXPARAMS);
       mbpa.hwndOwner = hwnd;
@@ -405,7 +405,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   }
   case WM_CLOSE: {
     if (MessageBox(hwnd, TEXT("exit?"),
-    C_APPNAME, MB_OKCANCEL | MB_ICONWARNING) == IDOK) {
+    C_APPNAME_STR, MB_OKCANCEL | MB_ICONWARNING) == IDOK) {
       dcb1.end();
       DestroyWindow(hwnd);
     }
@@ -445,7 +445,7 @@ int WINAPI WinMain(HINSTANCE hi, HINSTANCE hp, LPSTR cl, int cs) {
   // Main Window: Create, Show
   HWND hwnd = CreateWindowEx(
     WS_EX_TOPMOST,
-    wc.lpszClassName, C_APPNAME,
+    wc.lpszClassName, C_APPNAME_STR,
     WS_VISIBLE | WS_SYSMENU | WS_POPUP,
     0, 0,
     C_SCWIDTH,
