@@ -2,7 +2,7 @@
 all = fulldraw.exe
 
 # Library names
-LIBS = kernel32 shell32 user32 gdi32 gdiplus ucrt
+LIBS = kernel32 shell32 user32 gdi32 gdiplus
 
 # GCC
 GCCFLAGS = $(AR:%=-o $@ -DUNICODE -mwindows -nostartfiles -s ${LIBS:%=-l%})
@@ -13,7 +13,7 @@ GCRM = $(AR:%=rm -f)
 # VS
 _LIBS = $(LIBS) %
 _VSLIBS = $(_LIBS: =.lib )
-_VSFLAGS = /utf-8 /DUNICODE /MD /O2 /link /ENTRY:__start__ $(_VSLIBS:%=)
+_VSFLAGS = /utf-8 /DUNICODE /MD /O2 /link $(_VSLIBS:%=) /ENTRY:__start__
 _VSRC = rc
 _VSRFLAGS = /fo $*.o
 _VSRM = del /f
