@@ -32,6 +32,6 @@ FILETYPE VFT_APP {
     }
   }
   BLOCK "VarFileInfo" {
-    VALUE "Translation", 0x0400, 4608
+    VALUE "Translation", 0x0400, 0x1200
   }
 }
