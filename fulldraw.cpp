@@ -303,7 +303,6 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     GetPointerType(GET_POINTERID_WPARAM(wp), &device);
     POINT point = {GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
     ScreenToClient(hwnd, &point);
-    if (nodraw) return 0; // no need to movePoint()
     DrawParams dwp2 = dwpa; // is for only draw dot
     switch (device) {
     case PT_PEN: {
@@ -333,6 +332,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       break;
     }
     }
+    if (nodraw) return 0; // no need to movePoint()
     drawRender(hwnd, dcb1, dwp2, C_DR_DOT);
     return 0;
   }
@@ -347,7 +347,6 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     #define wout touf("[%d] gdi:%d, prs:%d, penmax:%d, presmax:%d, flags: %d, device: %d, (x:%d y:%d)", GetTickCount(), GetGuiResources(GetCurrentProcess(), GR_GDIOBJECTS), dwpa.pressure, dwpa.penmax, dwpa.presmax, pp.penFlags, dv, dwpa.x, dwpa.y);
     wout
     #endif
-    if (nodraw) return 0;
     switch (device) {
     case PT_PEN: {
       // WM_PENMOVE
@@ -364,6 +363,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     #ifdef dev
     wout
     #endif
+    if (nodraw) return 0;
     if (dwpa.pressure) {
       drawRender(hwnd, dcb1, dwpa);
     }
@@ -381,7 +381,9 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   case WM_CONTEXTMENU: { // WM_CONTEXTMENU's lp is [screen x,y]
     POINT point = {GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
     ScreenToClient(hwnd, &point);
-    if (point.x < 0 || point.y < 0) {
+    RECT rect;
+    GetClientRect(hwnd, &rect);
+    if (!PtInRect(&rect, point)) {
       goto end;
     }
     CheckMenuItem(popup, C_CMD_ERASER,
