@@ -181,7 +181,6 @@ int drawRender(HWND hwnd, DCBuffer &dcb1, DrawParams &dwpa, BOOL dot = 0) {
 
 LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   static DrawParams dwpa;
-  static DrawParams dwpa_mouse;
   static DCBuffer dcb1;
   static BOOL nodraw = FALSE; // no draw dot on activated window by click
   static HMENU menu;
@@ -190,7 +189,6 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   case WM_CREATE: {
     // x, y
     dwpa.init();
-    dwpa_mouse = dwpa;
     // ready bitmap buffer
     dcb1.init(hwnd);
     // cursor
@@ -218,26 +216,28 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     POINT point = {GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
     ScreenToClient(hwnd, &point);
     if (nodraw) return 0; // no need to movePoint()
+    DrawParams dwp2 = dwpa; // is for only draw dot
     switch (device) {
     case PT_PEN: {
       // WM_PEN_TAP
+      // DO NOT dwpa.movePoint(x,y) on pen tap. (invalid joint lines bug)
       POINTER_PEN_INFO penInfo;
       GetPointerPenInfo(GET_POINTERID_WPARAM(wp), &penInfo);
       // draw dot
-      DrawParams dwp2 = dwpa;
       dwp2.movePoint(point.x, point.y);
       dwp2.pressure = penInfo.pressure;
       dwp2.eraser = !!(penInfo.penFlags & PEN_FLAG_ERASER);
-      drawRender(hwnd, dcb1, dwp2, C_DR_DOT);
       break;
     }
     case PT_TOUCHPAD: // same to PT_MOUSE
     case PT_MOUSE: {
       if (IS_POINTER_FIRSTBUTTON_WPARAM(wp)) {
         // WM_LBUTTONDOWN
-        dwpa_mouse.movePoint(point.x, point.y);
-        dwpa_mouse.pressure = dwpa.PRS_INDE * 3;
-        drawRender(hwnd, dcb1, dwpa_mouse, C_DR_DOT);
+        // trigger of draw line
+        dwpa.movePoint(point.x, point.y);
+        dwpa.pressure = dwpa.PRS_INDE * 3;
+        // draw dot
+        dwp2 = dwpa;
       } else {
         // WM_RBUTTONDOWN_OR_OTHER_BUTTONDOWN
         goto end; // default action (e.g. pop context menu up)
@@ -245,6 +245,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       break;
     }
     }
+    drawRender(hwnd, dcb1, dwp2, C_DR_DOT);
     return 0;
   }
   case WM_POINTERUPDATE: {
@@ -252,47 +253,28 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     GetPointerType(GET_POINTERID_WPARAM(wp), &device);
     POINT point = {GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
     ScreenToClient(hwnd, &point);
+    dwpa.movePoint(point.x, point.y); // do everytime
+    if (nodraw) return 0;
     switch (device) {
     case PT_PEN: {
       // WM_PENMOVE
       POINTER_PEN_INFO penInfo;
       GetPointerPenInfo(GET_POINTERID_WPARAM(wp), &penInfo);
-      dwpa.movePoint(point.x, point.y); // do everytime
       dwpa.pressure = penInfo.pressure;
       dwpa.eraser = !!(penInfo.penFlags & PEN_FLAG_ERASER);
       if (!penInfo.pressure) { // need to set cursor on some good time
         goto end; // set cursor
       }
-      if (nodraw) return 0;
-      if (penInfo.pressure) {
-        drawRender(hwnd, dcb1, dwpa);
-      }
       break;
     }
-    case PT_TOUCHPAD: // same to PT_MOUSE
-    case PT_MOUSE: {
-      // WM_MOUSEMOVE
-      dwpa_mouse.movePoint(point.x, point.y); // do everytime
-      if (nodraw) return 0;
-      if (dwpa_mouse.pressure) {
-        drawRender(hwnd, dcb1, dwpa_mouse);
-      }
-      break;
     }
+    if (dwpa.pressure) {
+      drawRender(hwnd, dcb1, dwpa);
     }
     return 0;
   }
   case WM_POINTERUP: {
-    POINTER_INPUT_TYPE device;
-    GetPointerType(GET_POINTERID_WPARAM(wp), &device);
-    switch (device) {
-    case PT_TOUCHPAD: // same to PT_MOUSE
-    case PT_MOUSE: {
-      // WM_LBUTTONUP
-      dwpa_mouse.pressure = 0;
-      break;
-    }
-    }
+    dwpa.pressure = 0;
     nodraw = FALSE;
     return 0;
   }
@@ -416,7 +398,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   }
   case WM_ACTIVATE: {
     if (LOWORD(wp) == WA_INACTIVE) {
-      dwpa_mouse.pressure = 0; // on Windows start menu
+      dwpa.pressure = 0; // on Windows start menu
       SetWindowLongPtr(hwnd, GWL_EXSTYLE, WS_EX_LEFT);
       SetWindowPos(hwnd, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
     } else {
