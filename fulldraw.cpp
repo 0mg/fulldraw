@@ -41,17 +41,10 @@ public:
 };
 
 class DrawParams {
-public:
-  BOOL eraser;
-  int x, y, oldx, oldy;
-  int pressure;
-  int penmax, presmax;
-  int PEN_MIN, PEN_MAX, PEN_INDE;
-  int PRS_MIN, PRS_MAX, PRS_INDE;
-  void init() {
+private:
+  static BOOL staticsReadied;
+  static void initStatics() {
     eraser = FALSE;
-    x = y = oldx = oldy = 0;
-    pressure = 0;
     PEN_INDE = 1 * 2;
     PEN_MIN = 2 * 2;
     PEN_MAX = 25 * 2;
@@ -62,7 +55,22 @@ public:
     penmax = 14;
     updatePenPres();
   }
-  BOOL updatePenPres() {
+public:
+  int x, y, oldx, oldy;
+  int pressure;
+  static BOOL eraser;
+  static int penmax, presmax;
+  static int PEN_MIN, PEN_MAX, PEN_INDE;
+  static int PRS_MIN, PRS_MAX, PRS_INDE;
+  void init() {
+    x = y = oldx = oldy = 0;
+    pressure = 0;
+    if (!staticsReadied) {
+      initStatics();
+      staticsReadied = TRUE;
+    }
+  }
+  static BOOL updatePenPres() {
     // penmax
     penmax &= 0xfffe; // for cursor's circle adjustment
     if (penmax < PEN_MIN) penmax = PEN_MIN;
@@ -79,6 +87,11 @@ public:
     y = newy;
   }
 };
+BOOL DrawParams::eraser;
+int DrawParams::penmax; int DrawParams::presmax;
+int DrawParams::PEN_MIN; int DrawParams::PEN_MAX; int DrawParams::PEN_INDE;
+int DrawParams::PRS_MIN; int DrawParams::PRS_MAX; int DrawParams::PRS_INDE;
+BOOL DrawParams::staticsReadied = FALSE;
 
 static class Cursor {
 private:
@@ -224,9 +237,6 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         // WM_LBUTTONDOWN
         dwpa_mouse.movePoint(point.x, point.y);
         dwpa_mouse.pressure = dwpa.PRS_INDE * 3;
-        dwpa_mouse.penmax = dwpa.penmax;
-        dwpa_mouse.presmax = dwpa.presmax;
-        dwpa_mouse.eraser = dwpa.eraser;
         drawRender(hwnd, dcb1, dwpa_mouse, C_DR_DOT);
       } else {
         // WM_RBUTTONDOWN_OR_OTHER_BUTTONDOWN
@@ -263,9 +273,6 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     case PT_MOUSE: {
       // WM_MOUSEMOVE
       dwpa_mouse.movePoint(point.x, point.y); // do everytime
-      dwpa_mouse.penmax = dwpa.penmax;
-      dwpa_mouse.presmax = dwpa.presmax;
-      dwpa_mouse.eraser = dwpa.eraser;
       if (nodraw) return 0;
       if (dwpa_mouse.pressure) {
         drawRender(hwnd, dcb1, dwpa_mouse);
