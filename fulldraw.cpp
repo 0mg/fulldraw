@@ -21,13 +21,14 @@ void __start__() {
 
 #ifdef dev
 HWND chwnd;
-TCHAR ss[255];
+TCHAR ss[5000];
 ULONGLONG nn;
 HDC ddcc;
 void tou(LPTSTR str, HDC hdc, HWND hwnd, int bottom) {
   Graphics gpctx(hdc);
   SolidBrush brush(0xFFc0c0c0);
   gpctx.FillRectangle(&brush, 0, bottom * 20, C_SCWIDTH, 20);
+  SelectObject(hdc, (HFONT)GetStockObject(OEM_FIXED_FONT));
   TextOut(hdc, 0, bottom * 20, str, lstrlen(str));
   InvalidateRect(hwnd, NULL, TRUE);
 }
@@ -259,11 +260,15 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   static HMENU menu;
   static HMENU popup;
   #ifdef dev
-  static UINT mss[16];
-  int i = sizeof(mss) / sizeof(UINT);
-  for (;i-- > 1;) mss[i] = mss[i - 1];
-  mss[i] = msg;
-  touf2("[lp:%x, wp:%x] msg: %x > %x > %x > %x > %x > %x > %x > %x > %x > %x > %x > %x > %x > %x > %x > %x", lp, wp, mss[0], mss[1], mss[2], mss[3], mss[4], mss[5], mss[6], mss[7], mss[8], mss[9], mss[10], mss[11], mss[12], mss[13], mss[14], mss[15]);
+  const SIZE_T mslen = 31; static UINT mss[mslen];
+  const SIZE_T txlen = mslen * 10; TCHAR txs[txlen];
+  SecureZeroMemory(txs, sizeof(TCHAR) * txlen);
+  for (int i = mslen; i-- > 0;) {
+    int mgs = msg == WM_KEYUP && wp == 'J' ? 0xABCD : msg;
+    mss[i] = i > 0 ? mss[i - 1] : mgs;
+    wsprintf(txs, TEXT("%s%4X"), txs, mss[i]);
+  }
+  touf2("[lp:%8x, wp:%8x] msg: %s", lp, wp, txs);
   touf3("nodraw: %d", nodraw);
   #endif
   switch (msg) {
