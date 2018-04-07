@@ -283,6 +283,11 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     return 0;
   }
   case WM_CONTEXTMENU: { // WM_CONTEXTMENU's lp is [screen x,y]
+    POINT point = {GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
+    ScreenToClient(hwnd, &point);
+    if (point.x < 0 || point.y < 0) {
+      goto end;
+    }
     CheckMenuItem(popup, C_CMD_ERASER,
       dwpa.eraser ? MFS_CHECKED : MFS_UNCHECKED);
     TrackPopupMenuEx(popup, 0, GET_X_LPARAM(lp), GET_Y_LPARAM(lp), hwnd, NULL);
