@@ -263,7 +263,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   int i = sizeof(mss) / sizeof(UINT);
   for (;i-- > 1;) mss[i] = mss[i - 1];
   mss[i] = msg;
-  touf2("[%x,%x] %x > %x > %x > %x > %x > %x > %x > %x > %x > %x > %x > %x > %x > %x > %x > %x", lp, wp, mss[0], mss[1], mss[2], mss[3], mss[4], mss[5], mss[6], mss[7], mss[8], mss[9], mss[10], mss[11], mss[12], mss[13], mss[14], mss[15]);
+  touf2("[lp:%x, wp:%x] msg: %x > %x > %x > %x > %x > %x > %x > %x > %x > %x > %x > %x > %x > %x > %x > %x", lp, wp, mss[0], mss[1], mss[2], mss[3], mss[4], mss[5], mss[6], mss[7], mss[8], mss[9], mss[10], mss[11], mss[12], mss[13], mss[14], mss[15]);
   touf3("nodraw: %d", nodraw);
   #endif
   switch (msg) {
@@ -342,13 +342,12 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     POINT point = {GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
     ScreenToClient(hwnd, &point);
     dwpa.movePoint(point.x, point.y); // do everytime
-    if (nodraw) return 0;
     #ifdef dev
-    POINTER_PEN_INFO pp; GetPointerPenInfo(GET_POINTERID_WPARAM(wp), &pp);
-    touf("[%d] gdi:%d, prs:%d, penmax:%d, presmax:%d, flags: %d, device: %d, (x:%d y:%d)",
-      GetTickCount(), GetGuiResources(GetCurrentProcess(), GR_GDIOBJECTS),
-      dwpa.pressure, dwpa.penmax, dwpa.presmax, pp.penFlags, device, dwpa.x, dwpa.y);
+    POINTER_INPUT_TYPE dv; GetPointerType(GET_POINTERID_WPARAM(wp), &dv); POINTER_PEN_INFO pp; GetPointerPenInfo(GET_POINTERID_WPARAM(wp), &pp);
+    #define wout touf("[%d] gdi:%d, prs:%d, penmax:%d, presmax:%d, flags: %d, device: %d, (x:%d y:%d)", GetTickCount(), GetGuiResources(GetCurrentProcess(), GR_GDIOBJECTS), dwpa.pressure, dwpa.penmax, dwpa.presmax, pp.penFlags, dv, dwpa.x, dwpa.y);
+    wout
     #endif
+    if (nodraw) return 0;
     switch (device) {
     case PT_PEN: {
       // WM_PENMOVE
@@ -362,6 +361,9 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       break;
     }
     }
+    #ifdef dev
+    wout
+    #endif
     if (dwpa.pressure) {
       drawRender(hwnd, dcb1, dwpa);
     }
@@ -460,7 +462,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   }
   case WM_KEYDOWN: {
     #ifdef dev
-    touf("%d", wp);
+    touf("key: %d", wp);
     #endif
     int ctrl = GetAsyncKeyState(VK_CONTROL);
     switch (wp) {
@@ -512,7 +514,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       #endif
     }
     #ifdef dev
-    touf("%d,%d", LOWORD(wp), GetTickCount());
+    touf("[%d] WM_ACTIVATE: wp %d", GetTickCount(), LOWORD(wp));
     #endif
     return 0;
   }
