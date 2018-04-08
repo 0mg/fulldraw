@@ -21,19 +21,24 @@ void __start__() {
 class DCBuffer {
 public:
   HDC dc;
-  void init(HWND hwnd, int w = C_SCWIDTH, int h = C_SCHEIGHT) {
-    Bitmap bmp(w, h);
-    Graphics gpctx(&bmp);
-    dc = gpctx.GetHDC();
+  ARGB bgcolor;
+  void init(HWND hwnd, int w, int h, Color color) {
+    HBITMAP bmp;
+    HDC hdc = GetDC(hwnd);
+    dc = CreateCompatibleDC(hdc);
+    bmp = CreateCompatibleBitmap(hdc, w, h);
+    SelectObject(dc, bmp);
+    DeleteObject(bmp);
+    bgcolor = color.GetValue();
     cls();
+    ReleaseDC(hwnd, hdc);
   }
-  void cls(Color color = C_BGCOLOR) {
+  void cls() {
     Graphics gpctx(dc);
-    gpctx.Clear(color);
+    gpctx.Clear(Color(bgcolor));
   }
   void end() {
-    Graphics gpctx(dc);
-    gpctx.ReleaseHDC(dc);
+    DeleteDC(dc);
   }
 };
 
@@ -187,7 +192,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     // x, y
     dwpa.init();
     // ready bitmap buffer
-    dcb1.init(hwnd);
+    dcb1.init(hwnd, C_SCWIDTH, C_SCHEIGHT, C_BGCOLOR);
     // cursor
     cursor.setCursor(hwnd, dwpa);
     // menu
