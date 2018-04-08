@@ -66,21 +66,18 @@ class DCBuffer {
 public:
   HDC dc;
   void init(HWND hwnd, int w = C_SCWIDTH, int h = C_SCHEIGHT) {
-    HBITMAP bmp;
-    HDC hdc = GetDC(hwnd);
-    dc = CreateCompatibleDC(hdc);
-    bmp = CreateCompatibleBitmap(hdc, w, h);
-    SelectObject(dc, bmp);
-    DeleteObject(bmp);
+    Bitmap bmp(w, h);
+    Graphics gpctx(&bmp);
+    dc = gpctx.GetHDC();
     cls();
-    ReleaseDC(hwnd, hdc);
   }
   void cls(Color color = C_BGCOLOR) {
     Graphics gpctx(dc);
     gpctx.Clear(color);
   }
   void end() {
-    DeleteDC(dc);
+    Graphics gpctx(dc);
+    gpctx.ReleaseHDC(dc);
   }
 };
 
@@ -143,10 +140,9 @@ private:
     int penmax = dwpa.penmax;
     int presmax = dwpa.presmax;
     // DC
-    DCBuffer dcb;
-    dcb.init(hwnd, w, h);
-    dcb.cls(Color(255, 255, 255, 255));
-    Graphics gpctx(dcb.dc);
+    Bitmap bmp(w, h);
+    Graphics gpctx(&bmp);
+    gpctx.Clear(Color(255, 255, 255, 255));
     Pen pen2(Color(255, 0, 0, 0), 1);
     // penmax circle
     gpctx.DrawEllipse(&pen2,
@@ -161,12 +157,13 @@ private:
       for (int x = 0; x < w;) {
         *ptr = 0;
         for (int i = 7; i >= 0; i--) {
-          *ptr |= (GetPixel(dcb.dc, x++, y) != RGB(255, 255, 255)) << i;
+          Color color;
+          bmp.GetPixel(x++, y, &color);
+          *ptr |= (color.GetValue() != 0xFFFFFFFF) << i;
         }
         ptr++;
       }
     }
-    dcb.end();
   }
   HCURSOR create(HWND hwnd, DrawParams &dwpa) {
     const int A_BYTE = 8;
@@ -194,7 +191,7 @@ public:
 } cursor;
 
 // C_CMD_DRAW v2.0
-int drawRender(HWND hwnd, DCBuffer &dcb1, DrawParams &dwpa, BOOL dot = 0) {
+int drawRender(HWND hwnd, HDC dc, DrawParams &dwpa, BOOL dot = 0) {
   // draw line
   int pensize;
   int pressure = dwpa.pressure;
@@ -211,7 +208,7 @@ int drawRender(HWND hwnd, DCBuffer &dcb1, DrawParams &dwpa, BOOL dot = 0) {
   }
   for (int i = 0; i <= 1; i++) {
     Graphics screen(hwnd);
-    Graphics buffer(dcb1.dc);
+    Graphics buffer(dc);
     Graphics *gpctx = i ? &buffer : &screen;
     gpctx->SetSmoothingMode(SmoothingModeAntiAlias);
     if (dot) {
@@ -362,7 +359,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     }
     }
     if (nodraw) return 0; // no need to movePoint()
-    drawRender(hwnd, dcb1, dwp2, C_DR_DOT);
+    drawRender(hwnd, dcb1.dc, dwp2, C_DR_DOT);
     return 0;
   }
   case WM_POINTERUPDATE: {
@@ -394,7 +391,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     #endif
     if (nodraw) return 0;
     if (dwpa.pressure) {
-      drawRender(hwnd, dcb1, dwpa);
+      drawRender(hwnd, dcb1.dc, dwpa);
     }
     return 0;
   }
