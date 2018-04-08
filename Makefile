@@ -2,7 +2,7 @@
 all = fulldraw.exe
 
 # Library names
-LIBS = kernel32 shell32 user32 gdi32 gdiplus
+LIBS = kernel32 shell32 user32 gdi32 gdiplus ucrt
 
 # GCC
 GCCFLAGS = $(AR:%=-o $@ -DUNICODE -mwindows -nostartfiles -s ${LIBS:%=-l%})
