@@ -27,7 +27,7 @@ ULONGLONG nn;
 HDC ddcc, ddcc2;
 void tou(LPTSTR str, HDC hdc, HWND hwnd, int bottom, int height = 0) {
   Graphics gpctx(hdc);
-  SolidBrush brush(0xFFc0ddc0);
+  SolidBrush brush(0xFF4488FF);
   gpctx.FillRectangle(&brush, 0, bottom * 20, C_SCWIDTH, 20+20*height);
   SelectObject(hdc, (HFONT)GetStockObject(OEM_FIXED_FONT));
   //TextOut(hdc, 0, bottom * 20, str, lstrlen(str));
@@ -41,15 +41,20 @@ void tou(LPTSTR str, HDC hdc, HWND hwnd, int bottom, int height = 0) {
 #define touf4(f,...) wsprintf(ss,TEXT(f),__VA_ARGS__),tou(ss,ddcc,chwnd,3)
 #define mboxf(f,...) wsprintf(ss,TEXT(f),__VA_ARGS__),MessageBox(NULL,ss,ss,0)
 #endif
-class Buffer {
-public:
+struct Buffer {
   void *data;
-  BOOL alloc(SIZE_T size) {
+  Buffer(SIZE_T size) {
     data = NULL;
     HANDLE heap = GetProcessHeap();
-    if (heap == NULL) return FALSE;
+    if (heap == NULL) return;
     data = HeapAlloc(heap, HEAP_ZERO_MEMORY, size);
-    return data != NULL;
+  }
+  BOOL copy(void *source, SIZE_T size) {
+    char *p = (char *)data, *q = (char *)source;
+    for (int i = 0; i < size; i++) {
+      *p++ = *q++;
+    }
+    return TRUE;
   }
   BOOL free() {
     HANDLE heap = GetProcessHeap();
