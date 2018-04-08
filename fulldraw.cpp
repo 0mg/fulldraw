@@ -20,16 +20,19 @@ void __start__() {
 }
 
 #ifdef dev
-HWND chwnd;
+#include "debug.h"
+HWND chwnd, chwnd2;
 TCHAR ss[5000];
 ULONGLONG nn;
-HDC ddcc;
-void tou(LPTSTR str, HDC hdc, HWND hwnd, int bottom) {
+HDC ddcc, ddcc2;
+void tou(LPTSTR str, HDC hdc, HWND hwnd, int bottom, int height = 0) {
   Graphics gpctx(hdc);
-  SolidBrush brush(0xFFc0c0c0);
-  gpctx.FillRectangle(&brush, 0, bottom * 20, C_SCWIDTH, 20);
+  SolidBrush brush(0xFFc0ddc0);
+  gpctx.FillRectangle(&brush, 0, bottom * 20, C_SCWIDTH, 20+20*height);
   SelectObject(hdc, (HFONT)GetStockObject(OEM_FIXED_FONT));
-  TextOut(hdc, 0, bottom * 20, str, lstrlen(str));
+  //TextOut(hdc, 0, bottom * 20, str, lstrlen(str));
+  RECT rct = {0, bottom*20, C_SCHEIGHT, bottom*20+20+20*height};
+  DrawText(hdc, str, -1, &rct, 0);
   InvalidateRect(hwnd, NULL, TRUE);
 }
 #define touf(f,...)  wsprintf(ss,TEXT(f),__VA_ARGS__),tou(ss,ddcc,chwnd,0)
@@ -190,39 +193,6 @@ public:
   }
 } cursor;
 
-#ifdef dev
-LRESULT CALLBACK chproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
-  static DCBuffer dgdc1;
-  switch (msg) {
-  case WM_CREATE: {
-    dgdc1.init(hwnd);
-    ddcc = dgdc1.dc;
-    return 0;
-  }
-  case WM_ERASEBKGND: return 1;
-  case WM_PAINT: {
-    PAINTSTRUCT ps;
-    HDC odc = BeginPaint(hwnd, &ps);
-    BitBlt(odc, 0, 0, C_SCWIDTH, C_SCHEIGHT, dgdc1.dc, 0, 0, SRCCOPY);
-    EndPaint(hwnd, &ps);
-    return 0;
-  }
-  }
-  return DefWindowProc(hwnd, msg, wp, lp);
-}
-void createDebugWindow(HWND parent) {
-  WNDCLASS wc;
-  SecureZeroMemory(&wc, sizeof(WNDCLASS));
-  wc.lpfnWndProc = chproc;
-  wc.lpszClassName = TEXT("fulldraw_debug_winclass");
-  if (RegisterClass(&wc) == 0) {
-    MessageBox(NULL, TEXT("failed: child win class"), NULL, MB_OK);
-    return;
-  }
-  chwnd = CreateWindow(wc.lpszClassName, C_APPNAME_STR, WS_VISIBLE,
-    0, 600, C_SCWIDTH, 120, parent, NULL, NULL, NULL);
-}
-#endif
 // C_CMD_DRAW v2.0
 int drawRender(HWND hwnd, DCBuffer &dcb1, DrawParams &dwpa, BOOL dot = 0) {
   // draw line
@@ -253,6 +223,57 @@ int drawRender(HWND hwnd, DCBuffer &dcb1, DrawParams &dwpa, BOOL dot = 0) {
   return 0;
 }
 
+#ifdef dev
+LRESULT CALLBACK chproc2(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
+  static DCBuffer dgdc1;
+  switch (msg) {
+  case WM_CREATE: {
+    dgdc1.init(hwnd);
+    ddcc2 = dgdc1.dc;
+    return 0;
+  }
+  case WM_ERASEBKGND: return 1;
+  case WM_PAINT: {
+    PAINTSTRUCT ps;
+    HDC odc = BeginPaint(hwnd, &ps);
+    BitBlt(odc, 0, 0, C_SCWIDTH, C_SCHEIGHT, dgdc1.dc, 0, 0, SRCCOPY);
+    EndPaint(hwnd, &ps);
+    return 0;
+  }
+  }
+  return DefWindowProc(hwnd, msg, wp, lp);
+}
+LRESULT CALLBACK chproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
+  static DCBuffer dgdc1;
+  switch (msg) {
+  case WM_CREATE: {
+    dgdc1.init(hwnd);
+    ddcc = dgdc1.dc;
+    return 0;
+  }
+  case WM_ERASEBKGND: return 1;
+  case WM_PAINT: {
+    PAINTSTRUCT ps;
+    HDC odc = BeginPaint(hwnd, &ps);
+    BitBlt(odc, 0, 0, C_SCWIDTH, C_SCHEIGHT, dgdc1.dc, 0, 0, SRCCOPY);
+    EndPaint(hwnd, &ps);
+    return 0;
+  }
+  }
+  return DefWindowProc(hwnd, msg, wp, lp);
+}
+HWND createDebugWindow(HWND parent, LPTSTR cls, WNDPROC prc) {
+  WNDCLASS wc; SecureZeroMemory(&wc, sizeof(WNDCLASS));
+  wc.lpfnWndProc = prc;
+  wc.lpszClassName = cls;
+  if (RegisterClass(&wc) == 0) {
+    MessageBox(NULL, TEXT("failed: child win class"), NULL, MB_OK);
+    return NULL;
+  }
+  return CreateWindow(cls, NULL, WS_VISIBLE,
+    0, 600, C_SCWIDTH, 120, parent, NULL, NULL, NULL);
+}
+#endif
 LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   static DrawParams dwpa;
   static DCBuffer dcb1;
@@ -260,15 +281,18 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   static HMENU menu;
   static HMENU popup;
   #ifdef dev
-  const SIZE_T mslen = 31; static UINT mss[mslen];
-  const SIZE_T txlen = mslen * 10; TCHAR txs[txlen];
+  const SIZE_T mslen = 50; static LPARAM mss[mslen];
+  const SIZE_T txlen = mslen * 100; TCHAR txs[txlen];
   SecureZeroMemory(txs, sizeof(TCHAR) * txlen);
   for (int i = mslen; i-- > 0;) {
     int mgs = msg == WM_KEYUP && wp == 'J' ? 0xABCD : msg;
-    mss[i] = i > 0 ? mss[i - 1] : mgs;
-    wsprintf(txs, TEXT("%s%4X"), txs, mss[i]);
+    mss[i] = i > 0 ? mss[i - 1] : MAKELPARAM(mgs & 0xFFFF, GetTickCount() & 0xFFFF);
   }
-  touf2("[lp:%8x, wp:%8x] msg: %s", lp, wp, txs);
+  for (int i = 0; i < mslen; i++) {
+    wsprintf(txs, TEXT("%s%3d|%4X %s\n"), txs, HIWORD(mss[i])&0xFF, LOWORD(mss[i]), MsgStr::get(LOWORD(mss[i])));
+  }
+  //tou(txs, ddcc2, chwnd2, 0, mslen);
+  touf2("[lp:%8x, wp:%8x] msg: 0x%4X", lp, wp, msg);
   touf3("nodraw: %d", nodraw);
   #endif
   switch (msg) {
@@ -283,11 +307,11 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     menu = LoadMenu(GetModuleHandle(NULL), MAKEINTRESOURCE(C_CTXMENU));
     popup = GetSubMenu(menu, 0);
     #ifdef dev
-    createDebugWindow(hwnd);
-    wsprintf(ss, TEXT("fulldraw - %d, %d"), 0, 0);
-    SetWindowText(chwnd, ss);
     SetWindowLongPtr(hwnd, GWL_STYLE, WS_OVERLAPPEDWINDOW);
     SetWindowPos(hwnd, HWND_TOP, 80, 80, C_SCWIDTH/1.5, C_SCHEIGHT/1.5, 0);
+    chwnd = createDebugWindow(hwnd, TEXT("fdw_dbg"), chproc);
+    chwnd2 = createDebugWindow(hwnd, TEXT("fdw_dbg2"), chproc2);
+    SetWindowPos(chwnd2, HWND_TOP, C_SCWIDTH-300, 0, 300, C_SCHEIGHT, 0);
     #endif
     // post WM_POINTERXXX on mouse move
     EnableMouseInPointer(TRUE);
