@@ -24,21 +24,11 @@ void __start__() {
 HWND chwnd, chwnd2;
 TCHAR ss[5000];
 ULONGLONG nn;
-HDC ddcc, ddcc2;
-void tou(LPTSTR str, HDC hdc, HWND hwnd, int bottom, int height = 0) {
-  Graphics gpctx(hdc);
-  SolidBrush brush(0xFF4488FF);
-  gpctx.FillRectangle(&brush, 0, bottom * 20, C_SCWIDTH, 20+20*height);
-  SelectObject(hdc, (HFONT)GetStockObject(OEM_FIXED_FONT));
-  //TextOut(hdc, 0, bottom * 20, str, lstrlen(str));
-  RECT rct = {0, bottom*20, C_SCHEIGHT, bottom*20+20+20*height};
-  DrawText(hdc, str, -1, &rct, 0);
-  InvalidateRect(hwnd, NULL, TRUE);
-}
-#define touf(f,...)  wsprintf(ss,TEXT(f),__VA_ARGS__),tou(ss,ddcc,chwnd,0)
-#define touf2(f,...) wsprintf(ss,TEXT(f),__VA_ARGS__),tou(ss,ddcc,chwnd,1)
-#define touf3(f,...) wsprintf(ss,TEXT(f),__VA_ARGS__),tou(ss,ddcc,chwnd,2)
-#define touf4(f,...) wsprintf(ss,TEXT(f),__VA_ARGS__),tou(ss,ddcc,chwnd,3)
+HDC chp1, chp2;
+#define touf(f,...)  wsprintf(ss,TEXT(f),__VA_ARGS__),tou(ss,chwnd,0)
+#define touf2(f,...) wsprintf(ss,TEXT(f),__VA_ARGS__),tou(ss,chwnd,1)
+#define touf3(f,...) wsprintf(ss,TEXT(f),__VA_ARGS__),tou(ss,chwnd,2)
+#define touf4(f,...) wsprintf(ss,TEXT(f),__VA_ARGS__),tou(ss,chwnd,3)
 #define mboxf(f,...) wsprintf(ss,TEXT(f),__VA_ARGS__),MessageBox(NULL,ss,ss,0)
 #endif
 struct Buffer {
@@ -230,57 +220,6 @@ int drawRender(HWND hwnd, HDC dc, DrawParams &dwpa, BOOL dot = 0) {
   return 0;
 }
 
-#ifdef dev
-LRESULT CALLBACK chproc2(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
-  static DCBuffer dgdc1;
-  switch (msg) {
-  case WM_CREATE: {
-    dgdc1.init(hwnd, C_SCWIDTH, C_SCHEIGHT, Color(255,99,255,200));
-    ddcc2 = dgdc1.dc;
-    return 0;
-  }
-  case WM_ERASEBKGND: return 1;
-  case WM_PAINT: {
-    PAINTSTRUCT ps;
-    HDC odc = BeginPaint(hwnd, &ps);
-    BitBlt(odc, 0, 0, C_SCWIDTH, C_SCHEIGHT, dgdc1.dc, 0, 0, SRCCOPY);
-    EndPaint(hwnd, &ps);
-    return 0;
-  }
-  }
-  return DefWindowProc(hwnd, msg, wp, lp);
-}
-LRESULT CALLBACK chproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
-  static DCBuffer dgdc1;
-  switch (msg) {
-  case WM_CREATE: {
-    dgdc1.init(hwnd, C_SCWIDTH, C_SCHEIGHT,Color(255,200,255,99));
-    ddcc = dgdc1.dc;
-    return 0;
-  }
-  case WM_ERASEBKGND: return 1;
-  case WM_PAINT: {
-    PAINTSTRUCT ps;
-    HDC odc = BeginPaint(hwnd, &ps);
-    BitBlt(odc, 0, 0, C_SCWIDTH, C_SCHEIGHT, dgdc1.dc, 0, 0, SRCCOPY);
-    EndPaint(hwnd, &ps);
-    return 0;
-  }
-  }
-  return DefWindowProc(hwnd, msg, wp, lp);
-}
-HWND createDebugWindow(HWND parent, LPTSTR cls, WNDPROC prc) {
-  WNDCLASS wc; SecureZeroMemory(&wc, sizeof(WNDCLASS));
-  wc.lpfnWndProc = prc;
-  wc.lpszClassName = cls;
-  if (RegisterClass(&wc) == 0) {
-    MessageBox(NULL, TEXT("failed: child win class"), NULL, MB_OK);
-    return NULL;
-  }
-  return CreateWindow(cls,TEXT("[K]MsgLogON/OFF"), WS_VISIBLE,
-    0, 600, C_SCWIDTH, 120, parent, NULL, NULL, NULL);
-}
-#endif
 LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   static DrawParams dwpa;
   static DCBuffer dcb1;
@@ -299,7 +238,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   for (int i = 0; i < mslen; i++) {
     wsprintf(txs, TEXT("%s%3d|%4X %s\n"), txs, HIWORD(mss[i])&0xFF, LOWORD(mss[i]), MsgStr::get(LOWORD(mss[i])));
   }
-  if (msgLogOn) tou(txs, ddcc2, chwnd2, 0, mslen);
+  if (msgLogOn) tou(txs, chwnd2, 0, mslen);
   touf2("[lp:%8x, wp:%8x] msg: 0x%4X", lp, wp, msg);
   touf3("nodraw: %d", nodraw);
   #endif
@@ -317,8 +256,8 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     #ifdef dev
     SetWindowLongPtr(hwnd, GWL_STYLE, WS_OVERLAPPEDWINDOW);
     SetWindowPos(hwnd, HWND_TOP, 80, 80, C_SCWIDTH/1.5, C_SCHEIGHT/1.5, 0);
-    chwnd = createDebugWindow(hwnd, TEXT("fdw_dbg"), chproc);
-    chwnd2 = createDebugWindow(hwnd, TEXT("fdw_dbg2"), chproc2);
+    chwnd = createDebugWindow(hwnd, TEXT("fdw_dbg"));
+    chwnd2 = createDebugWindow(hwnd, TEXT("fdw_dbg2"));
     SetWindowPos(chwnd2, HWND_TOP, C_SCWIDTH-300, 0, 300, C_SCHEIGHT, 0);
     #endif
     // post WM_POINTERXXX on mouse move

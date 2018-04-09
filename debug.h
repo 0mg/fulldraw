@@ -1,4 +1,34 @@
-#include <windows.h>
+void tou(LPTSTR str, HWND hwnd, int bottom, int height = 0) {
+  if (hwnd == NULL) return;
+  Graphics gpctx(hwnd);
+  SolidBrush brush(0xFFFFFFFF);
+  gpctx.FillRectangle(&brush, 0, bottom * 20, C_SCWIDTH, 20+20*height);
+  HDC hdc = gpctx.GetHDC();
+  SelectObject(hdc, (HFONT)GetStockObject(OEM_FIXED_FONT));
+  RECT rct = {0, bottom*20, C_SCHEIGHT, bottom*20+20+20*height};
+  DrawText(hdc, str, -1, &rct, 0);
+  gpctx.ReleaseHDC(hdc);
+  //TextOut(hdc, 0, bottom * 20, str, lstrlen(str));
+  //InvalidateRect(hwnd, NULL, TRUE);
+}
+
+LRESULT CALLBACK DBGProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
+  if (wp == WM_ERASEBKGND) return 1;
+  return DefWindowProc(hwnd, msg, wp, lp);
+}
+
+HWND createDebugWindow(HWND parent, LPTSTR cls) {
+  WNDCLASS wc; SecureZeroMemory(&wc, sizeof(WNDCLASS));
+  wc.lpfnWndProc = DBGProc;
+  wc.lpszClassName = cls;
+  if (RegisterClass(&wc) == 0) {
+    MessageBox(NULL, TEXT("failed: child win class"), NULL, MB_OK);
+    return NULL;
+  }
+  return CreateWindow(cls,TEXT("[K]MsgLogON/OFF"), WS_VISIBLE,
+    0, 600, C_SCWIDTH, 120, parent, NULL, NULL, NULL);
+}
+
 namespace MsgStr {
   LPTSTR get(UINT msg) {
     switch(msg) {
