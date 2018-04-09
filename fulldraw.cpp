@@ -277,7 +277,7 @@ HWND createDebugWindow(HWND parent, LPTSTR cls, WNDPROC prc) {
     MessageBox(NULL, TEXT("failed: child win class"), NULL, MB_OK);
     return NULL;
   }
-  return CreateWindow(cls, NULL, WS_VISIBLE,
+  return CreateWindow(cls,TEXT("[K]MsgLogON/OFF"), WS_VISIBLE,
     0, 600, C_SCWIDTH, 120, parent, NULL, NULL, NULL);
 }
 #endif
@@ -288,6 +288,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   static HMENU menu;
   static HMENU popup;
   #ifdef dev
+  static BOOL msgLogOn = 1;
   const SIZE_T mslen = 50; static LPARAM mss[mslen];
   const SIZE_T txlen = mslen * 100; TCHAR txs[txlen];
   SecureZeroMemory(txs, sizeof(TCHAR) * txlen);
@@ -298,7 +299,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   for (int i = 0; i < mslen; i++) {
     wsprintf(txs, TEXT("%s%3d|%4X %s\n"), txs, HIWORD(mss[i])&0xFF, LOWORD(mss[i]), MsgStr::get(LOWORD(mss[i])));
   }
-  //tou(txs, ddcc2, chwnd2, 0, mslen);
+  if (msgLogOn) tou(txs, ddcc2, chwnd2, 0, mslen);
   touf2("[lp:%8x, wp:%8x] msg: 0x%4X", lp, wp, msg);
   touf3("nodraw: %d", nodraw);
   #endif
@@ -499,9 +500,6 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     return 0;
   }
   case WM_KEYDOWN: {
-    #ifdef dev
-    touf("key: %d", wp);
-    #endif
     int ctrl = GetAsyncKeyState(VK_CONTROL);
     switch (wp) {
     case VK_ESCAPE: PostMessage(hwnd, WM_COMMAND, C_CMD_EXIT, 0); return 0;
@@ -535,6 +533,12 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       SendMessage(hwnd, WM_COMMAND, C_CMD_PRS_IN, 0);
       return 0;
     }
+    #ifdef dev
+    case 'K': msgLogOn ^= 1; return 0;
+    default: {
+      touf("key: %d(%c)", wp, wp);
+    }
+    #endif
     }
     return 0;
   }
