@@ -1,6 +1,8 @@
 #define dev
 #include <windows.h>
 #include <windowsx.h>
+#include <d2d1.h>
+#include <d2d1helper.h>
 #include <gdiplus.h>
 using namespace Gdiplus;
 
@@ -191,7 +193,7 @@ public:
 } cursor;
 
 // C_CMD_DRAW v2.0
-int drawRender(HWND hwnd, HDC dc, DrawParams &dwpa, BOOL dot = 0) {
+int drawRenderOrig(HWND hwnd, HDC dc, DrawParams &dwpa, BOOL dot = 0) {
   // draw line
   int pensize;
   int pressure = dwpa.pressure;
@@ -220,7 +222,67 @@ int drawRender(HWND hwnd, HDC dc, DrawParams &dwpa, BOOL dot = 0) {
   return 0;
 }
 
+class Direct2D {
+public:
+  ID2D1Factory *factory;
+  ID2D1HwndRenderTarget *screen;
+  ID2D1BitmapRenderTarget* kanv;
+  HRESULT init(HWND hwnd) {
+    HRESULT hr = D2D1CreateFactory(
+      D2D1_FACTORY_TYPE_MULTI_THREADED,
+      &factory
+    );
+    getScreen(hwnd);
+    return hr;
+  }
+  HRESULT getScreen(HWND hwnd) {
+    RECT rc;
+    GetClientRect(hwnd, &rc);
+    HRESULT hr = factory->CreateHwndRenderTarget(
+      D2D1::RenderTargetProperties(),
+      D2D1::HwndRenderTargetProperties(
+        hwnd,
+        D2D1::SizeU(rc.right - rc.left, rc.bottom - rc.top)
+      ),
+      &screen
+    );
+    return hr;
+  }
+  HRESULT createCanvas() {
+    HRESULT hr = screen->CreateCompatibleRenderTarget(&kanv);
+    return hr;
+  }
+  void end() {
+    screen->Release();
+    factory->Release();
+  }
+};
+
+// C_CMD_DRAW v3.0 (Direct2D)
+int drawRender(HWND hwnd, Direct2D &d2o, DrawParams &dwpa, BOOL dot = 0) {
+  // draw line
+  int pensize;
+  int pressure = dwpa.pressure;
+  int penmax = dwpa.penmax;
+  int presmax = dwpa.presmax;
+  int oldx = dwpa.oldx, oldy = dwpa.oldy, x = dwpa.x, y = dwpa.y;
+  if (pressure > presmax) pressure = presmax;
+  pensize = pressure * penmax / presmax;
+  ID2D1RenderTarget *target = d2o.screen;
+  target->BeginDraw();
+  D2D1_POINT_2F point1 = {(float)oldx, (float)oldy};
+  D2D1_POINT_2F point2 = {(float)x, (float)y};
+  if (dot) point1.x = (float)x + 0.1, point1.y = (float)y;
+  ID2D1SolidColorBrush* brush;
+  target->CreateSolidColorBrush(
+    dwpa.eraser ? D2D1::ColorF(255, 255, 255) : D2D1::ColorF(0, 0, 0), &brush);
+  target->DrawLine(point1, point2, brush, pensize, NULL);
+  target->EndDraw();
+  return 0;
+}
+
 LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
+  static Direct2D d2main;
   static DrawParams dwpa;
   static DCBuffer dcb1;
   static BOOL nodraw = FALSE; // no draw dot on activated window by click
@@ -248,6 +310,11 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     dwpa.init();
     // ready bitmap buffer
     dcb1.init(hwnd, C_SCWIDTH, C_SCHEIGHT, C_BGCOLOR);
+    d2main.init(hwnd);
+    d2main.createCanvas();
+    d2main.screen->BeginDraw();
+    d2main.screen->Clear(D2D1::ColorF(D2D1::ColorF::White));
+    d2main.screen->EndDraw();
     // cursor
     cursor.setCursor(hwnd, dwpa);
     // menu
@@ -257,8 +324,8 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     SetWindowLongPtr(hwnd, GWL_STYLE, WS_OVERLAPPEDWINDOW);
     SetWindowPos(hwnd, HWND_TOP, 80, 80, C_SCWIDTH/1.5, C_SCHEIGHT/1.5, 0);
     chwnd = createDebugWindow(hwnd, TEXT("fdw_dbg"));
-    chwnd2 = createDebugWindow(hwnd, TEXT("fdw_dbg2"));
-    SetWindowPos(chwnd2, HWND_TOP, C_SCWIDTH-300, 0, 300, C_SCHEIGHT, 0);
+    //chwnd2 = createDebugWindow(hwnd, TEXT("fdw_dbg2"));
+    //SetWindowPos(chwnd2, HWND_TOP, C_SCWIDTH-300, 0, 300, C_SCHEIGHT, 0);
     #endif
     // post WM_POINTERXXX on mouse move
     EnableMouseInPointer(TRUE);
@@ -309,7 +376,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     }
     }
     if (nodraw) return 0; // no need to movePoint()
-    drawRender(hwnd, dcb1.dc, dwp2, C_DR_DOT);
+    drawRender(hwnd, d2main, dwp2, C_DR_DOT);
     return 0;
   }
   case WM_POINTERUPDATE: {
@@ -341,7 +408,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     #endif
     if (nodraw) return 0;
     if (dwpa.pressure) {
-      drawRender(hwnd, dcb1.dc, dwpa);
+      drawRender(hwnd, d2main, dwpa);
     }
     return 0;
   }
