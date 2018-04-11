@@ -305,6 +305,8 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   case WM_COMMAND: {
     switch (LOWORD(wp)) {
     case C_CMD_REFRESH: {
+      nodraw = FALSE;
+      PenUI.setCursor(hwnd, dwpa);
       SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, C_SCWIDTH, C_SCHEIGHT, 0);
       return 0;
     }
