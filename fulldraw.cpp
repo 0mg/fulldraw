@@ -214,7 +214,7 @@ int drawRender(HWND hwnd, HDC dc, DrawParams &dwpa, BOOL dot = 0) {
     Graphics buffer(dc);
     Graphics *gpctx = i ? &buffer : &screen;
     gpctx->SetSmoothingMode(SmoothingModeAntiAlias);
-    if (dot) {
+    if (dot == C_DR_DOT) {
       gpctx->DrawLine(&pen2, (float)x - 0.1, (float)y, (float)x, (float)y);
     } else {
       gpctx->DrawLine(&pen2, oldx, oldy, x, y);
