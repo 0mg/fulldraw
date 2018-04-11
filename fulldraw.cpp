@@ -284,7 +284,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     PenUI.setCursor(hwnd, dwpa);
     return 0;
   }
-  case WM_NCPOINTERUP: {
+  case WM_NCPOINTERUP: { // WM_NCPOINTERUP is not be sent on click titlebar
     nodraw = FALSE;
     PenUI.setCursor(hwnd, dwpa, 0, FALSE);
     return 0;
@@ -294,7 +294,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     ScreenToClient(hwnd, &point);
     RECT rect;
     GetClientRect(hwnd, &rect);
-    if (!PtInRect(&rect, point)) {
+    if (!PtInRect(&rect, point)) { // if R-click titlebar
       goto end;
     }
     CheckMenuItem(popup, C_CMD_ERASER,
