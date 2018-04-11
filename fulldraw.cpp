@@ -13,6 +13,7 @@ using namespace Gdiplus;
 #define C_FGCOLOR Color(255, 0, 0, 0)
 #define C_BGCOLOR Color(255, 255, 255, 255)
 #define C_DR_DOT 1
+#define C_CS_ARROW 1
 
 void __start__() {
   // program will start from here if `gcc -nostartfiles`
@@ -134,7 +135,7 @@ int DrawParams::PEN_MIN; int DrawParams::PEN_MAX; int DrawParams::PEN_INDE;
 int DrawParams::PRS_MIN; int DrawParams::PRS_MAX; int DrawParams::PRS_INDE;
 BOOL DrawParams::staticsReadied = FALSE;
 
-static class Cursor {
+static class tagPenUI {
 private:
   void drawBMP(HWND hwnd, BYTE *ptr, int w, int h, DrawParams &dwpa) {
     int penmax = dwpa.penmax;
@@ -180,15 +181,17 @@ private:
     return CreateCursor(GetModuleHandle(NULL), x, y, w, h, band, bxor);
   }
 public:
-  BOOL setCursor(HWND hwnd, DrawParams &dwpa) {
-    HCURSOR cursor = create(hwnd, dwpa);
+  BOOL setCursor(HWND hwnd, DrawParams &dwpa, BOOL arrow = 0, BOOL redraw = TRUE) {
+    HCURSOR cursor = arrow == C_CS_ARROW ?
+      (HCURSOR)LoadImage(NULL, IDC_ARROW, IMAGE_CURSOR, 0, 0, LR_SHARED) :
+      create(hwnd, dwpa);
     HCURSOR old = (HCURSOR)GetClassLongPtr(hwnd, GCLP_HCURSOR);
     SetClassLongPtr(hwnd, GCL_HCURSOR, (LONG)cursor);
-    SetCursor(cursor);
     DestroyCursor(old);
+    if (redraw) SetCursor(cursor);
     return 0;
   }
-} cursor;
+} PenUI;
 
 // C_CMD_DRAW v2.0
 int drawRender(HWND hwnd, HDC dc, DrawParams &dwpa, BOOL dot = 0) {
@@ -249,7 +252,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     // ready bitmap buffer
     dcb1.init(hwnd, C_SCWIDTH, C_SCHEIGHT, C_BGCOLOR);
     // cursor
-    cursor.setCursor(hwnd, dwpa);
+    PenUI.setCursor(hwnd, dwpa);
     // menu
     menu = LoadMenu(GetModuleHandle(NULL), MAKEINTRESOURCE(C_CTXMENU));
     popup = GetSubMenu(menu, 0);
@@ -414,25 +417,25 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     case C_CMD_PEN_DE: {
       dwpa.penmax -= dwpa.PEN_INDE;
       dwpa.updatePenPres();
-      cursor.setCursor(hwnd, dwpa);
+      PenUI.setCursor(hwnd, dwpa);
       return 0;
     }
     case C_CMD_PEN_IN: {
       dwpa.penmax += dwpa.PEN_INDE;
       dwpa.updatePenPres();
-      cursor.setCursor(hwnd, dwpa);
+      PenUI.setCursor(hwnd, dwpa);
       return 0;
     }
     case C_CMD_PRS_DE: {
       dwpa.presmax -= dwpa.PRS_INDE;
       dwpa.updatePenPres();
-      cursor.setCursor(hwnd, dwpa);
+      PenUI.setCursor(hwnd, dwpa);
       return 0;
     }
     case C_CMD_PRS_IN: {
       dwpa.presmax += dwpa.PRS_INDE;
       dwpa.updatePenPres();
-      cursor.setCursor(hwnd, dwpa);
+      PenUI.setCursor(hwnd, dwpa);
       return 0;
     }
     }
