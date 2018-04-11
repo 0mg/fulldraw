@@ -351,10 +351,12 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   case WM_POINTERUP: {
     dwpa.pressure = 0;
     nodraw = FALSE;
+    PenUI.setCursor(hwnd, dwpa);
     return 0;
   }
   case WM_NCPOINTERUP: {
     nodraw = FALSE;
+    PenUI.setCursor(hwnd, dwpa, 0, FALSE);
     return 0;
   }
   case WM_CONTEXTMENU: { // WM_CONTEXTMENU's lp is [screen x,y]
@@ -487,6 +489,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   case WM_ACTIVATE: {
     if (LOWORD(wp) == WA_INACTIVE) {
       dwpa.pressure = 0; // on Windows start menu
+      PenUI.setCursor(hwnd, dwpa, C_CS_ARROW, FALSE);
       SetWindowLongPtr(hwnd, GWL_EXSTYLE, WS_EX_LEFT);
       SetWindowPos(hwnd, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
     } else {
@@ -496,6 +499,9 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       SetWindowLongPtr(hwnd, GWL_EXSTYLE, WS_EX_LEFT);
       SetWindowPos(hwnd, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
       #endif
+      if (LOWORD(wp) == WA_ACTIVE) {
+        if (!nodraw) PenUI.setCursor(hwnd, dwpa, 0, FALSE);
+      }
     }
     #ifdef dev
     touf("[%d] WM_ACTIVATE: wp %d", GetTickCount(), LOWORD(wp));
