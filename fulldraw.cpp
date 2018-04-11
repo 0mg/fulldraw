@@ -32,13 +32,27 @@ HDC chp1, chp2;
 #define touf4(f,...) wsprintf(ss,TEXT(f),__VA_ARGS__),tou(ss,chwnd,3)
 #define mboxf(f,...) wsprintf(ss,TEXT(f),__VA_ARGS__),MessageBox(NULL,ss,ss,0)
 #endif
-struct Buffer {
+class Buffer {
+public:
   void *data;
-  Buffer(SIZE_T size) {
+  void init(SIZE_T size) {
     data = NULL;
     HANDLE heap = GetProcessHeap();
     if (heap == NULL) return;
     data = HeapAlloc(heap, HEAP_ZERO_MEMORY, size);
+  }
+  DWORD length() {
+    HANDLE heap = GetProcessHeap();
+    if (heap == NULL) -2;
+    return HeapSize(heap, 0, data);
+  }
+  int resize(SIZE_T size) {
+    HANDLE heap = GetProcessHeap();
+    if (heap == NULL) return -1;
+    LPVOID p = HeapReAlloc(heap, HEAP_ZERO_MEMORY, data, size);
+    if (p == NULL) return -2;
+    data = p;
+    return 0;
   }
   BOOL copy(void *source, SIZE_T size) {
     char *p = (char *)data, *q = (char *)source;
