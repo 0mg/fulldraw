@@ -74,22 +74,29 @@ public:
 
 class DCBuffer {
 public:
+  int width, height;
   HDC dc;
   ARGB bgcolor;
   void init(HWND hwnd, int w, int h, Color color) {
-    HBITMAP bmp;
     HDC hdc = GetDC(hwnd);
     dc = CreateCompatibleDC(hdc);
-    bmp = CreateCompatibleBitmap(hdc, w, h);
+    HBITMAP bmp = CreateCompatibleBitmap(hdc, w, h);
     SelectObject(dc, bmp);
-    DeleteObject(bmp);
+    width = w, height = h;
     bgcolor = color.GetValue();
     cls();
     ReleaseDC(hwnd, hdc);
+    DeleteObject(bmp);
   }
   void cls() {
     Graphics gpctx(dc);
     gpctx.Clear(Color(bgcolor));
+  }
+  void copyToBitmap(Bitmap &bm) {
+    Graphics ctx(&bm);
+    HDC bmdc = ctx.GetHDC();
+    BitBlt(bmdc, 0, 0, width, height, dc, 0, 0, SRCCOPY);
+    ctx.ReleaseHDC(bmdc);
   }
   void end() {
     DeleteDC(dc);
