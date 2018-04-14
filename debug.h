@@ -12,6 +12,15 @@ void tou(LPTSTR str, HWND hwnd, int bottom, int height = 0) {
   //InvalidateRect(hwnd, NULL, TRUE);
 }
 
+LPTSTR es(LPTSTR s) {
+  FormatMessage(
+    FORMAT_MESSAGE_FROM_SYSTEM |
+    FORMAT_MESSAGE_IGNORE_INSERTS,
+    NULL, GetLastError(), MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), s, 0, NULL
+  );
+  return s;
+}
+
 LRESULT CALLBACK DBGProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   if (wp == WM_ERASEBKGND) return 1;
   return DefWindowProc(hwnd, msg, wp, lp);
