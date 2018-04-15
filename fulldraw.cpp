@@ -34,45 +34,6 @@ HDC chp1, chp2;
 #define touf4(f,...) wsprintf(ss,TEXT(f),__VA_ARGS__),tou(ss,chwnd,3)
 #define mboxf(f,...) wsprintf(ss,TEXT(f),__VA_ARGS__),MessageBox(NULL,ss,ss,0)
 #endif
-class Buffer {
-public:
-  void *data;
-  void init(SIZE_T size) {
-    data = NULL;
-    HANDLE heap = GetProcessHeap();
-    if (heap == NULL) return;
-    data = HeapAlloc(heap, HEAP_ZERO_MEMORY, size);
-  }
-  DWORD length() {
-    HANDLE heap = GetProcessHeap();
-    if (heap == NULL) -2;
-    return HeapSize(heap, 0, data);
-  }
-  int resize(SIZE_T size) {
-    HANDLE heap = GetProcessHeap();
-    if (heap == NULL) return -1;
-    LPVOID p = HeapReAlloc(heap, HEAP_ZERO_MEMORY, data, size);
-    if (p == NULL) return -2;
-    data = p;
-    return 0;
-  }
-  BOOL copy(void *source, SIZE_T size) {
-    char *p = (char *)data, *q = (char *)source;
-    for (int i = 0; i < size; i++) {
-      *p++ = *q++;
-    }
-    return TRUE;
-  }
-  BOOL free() {
-    HANDLE heap = GetProcessHeap();
-    if (heap == NULL) return FALSE;
-    if (HeapFree(heap, 0, data)) {
-      data = NULL;
-      return TRUE;
-    }
-    return FALSE;
-  }
-};
 
 class DCBuffer {
 public:
@@ -265,8 +226,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     wsprintf(txs, TEXT("%s%3d|%4X %s\n"), txs, HIWORD(mss[i])&0xFF, LOWORD(mss[i]), MsgStr::get(LOWORD(mss[i])));
   }
   if (msgLogOn) tou(txs, chwnd2, 0, mslen);
-  touf2("[lp:%8x, wp:%8x] msg: 0x%4X", lp, wp, msg);
-  touf3("nodraw: %d", nodraw);
+  touf2("[lp:%8x, wp:%8x] msg: 0x%4X, nodraw: %d", lp, wp, msg, nodraw);
   #endif
   switch (msg) {
   case WM_CREATE: {
