@@ -12,6 +12,8 @@ using namespace Gdiplus;
 #define C_FGCOLOR Color(255, 0, 0, 0)
 #define C_BGCOLOR Color(255, 255, 255, 255)
 
+LPCTSTR C_APPNAME_STR = C_APPNAME;
+
 void __start__() {
   // program will start from here if `gcc -nostartfiles`
   ExitProcess(WinMain(GetModuleHandle(NULL), 0, NULL, 0));
