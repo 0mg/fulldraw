@@ -180,13 +180,12 @@ public:
 // C_CMD_DRAW v2.0
 int drawRender(HWND hwnd, HDC dc, DrawParams &dwpa, BOOL dot = 0) {
   // draw line
-  int pensize;
   int pressure = dwpa.pressure;
   int penmax = dwpa.penmax;
   int presmax = dwpa.presmax;
   int oldx = dwpa.oldx, oldy = dwpa.oldy, x = dwpa.x, y = dwpa.y;
   if (pressure > presmax) pressure = presmax;
-  pensize = pressure * penmax / presmax;
+  REAL pensize = pressure * (REAL)penmax / presmax;
   Pen pen2(C_FGCOLOR, pensize); // Pen draws 1px line if pensize=0
   pen2.SetStartCap(LineCapRound);
   pen2.SetEndCap(LineCapRound);
@@ -199,7 +198,7 @@ int drawRender(HWND hwnd, HDC dc, DrawParams &dwpa, BOOL dot = 0) {
     Graphics *gpctx = i ? &buffer : &screen;
     gpctx->SetSmoothingMode(SmoothingModeAntiAlias);
     if (dot == C_DR_DOT) {
-      gpctx->DrawLine(&pen2, (float)x - 0.1, (float)y, (float)x, (float)y);
+      gpctx->DrawLine(&pen2, (REAL)x - 0.1, (REAL)y, (REAL)x, (REAL)y);
     } else {
       gpctx->DrawLine(&pen2, oldx, oldy, x, y);
     }
