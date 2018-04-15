@@ -192,6 +192,7 @@ int drawRender(HWND hwnd, HDC dc, DrawParams &dwpa, BOOL dot = 0) {
   if (dwpa.eraser) {
     pen2.SetColor(C_BGCOLOR);
   }
+  if (oldx == x && oldy == y) dot = C_DR_DOT;
   for (int i = 0; i <= 1; i++) {
     Graphics screen(hwnd);
     Graphics buffer(dc);
