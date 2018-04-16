@@ -187,7 +187,6 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   static DrawParams dwpa;
   static DCBuffer dcb1;
   static BOOL nodraw = FALSE; // no draw dot on activated window by click
-  static HMENU menu;
   static HMENU popup;
   switch (msg) {
   case WM_CREATE: {
@@ -198,7 +197,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     // cursor
     PenUI.setCursor(hwnd, dwpa);
     // menu
-    menu = LoadMenu(GetModuleHandle(NULL), MAKEINTRESOURCE(C_CTXMENU));
+    HMENU menu = LoadMenu(GetModuleHandle(NULL), MAKEINTRESOURCE(C_CTXMENU));
     popup = GetSubMenu(menu, 0);
     // post WM_POINTERXXX on mouse move
     EnableMouseInPointer(TRUE);
@@ -289,16 +288,28 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     return 0;
   }
   case WM_CONTEXTMENU: { // WM_CONTEXTMENU's lp is [screen x,y]
-    POINT point = {GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
-    ScreenToClient(hwnd, &point);
-    RECT rect;
-    GetClientRect(hwnd, &rect);
-    if (!PtInRect(&rect, point)) { // if R-click titlebar
-      goto end;
+    const int x = GET_X_LPARAM(lp), y = GET_Y_LPARAM(lp);
+    const BOOL rightclick = !(x == -1 && y == -1);
+    // choice ctxmenu or sysmenu
+    if (rightclick) {
+      POINT point = {x, y};
+      ScreenToClient(hwnd, &point);
+      RECT rect;
+      GetClientRect(hwnd, &rect);
+      if (!PtInRect(&rect, point)) { // if R-click titlebar
+        goto end;
+      }
     }
+    // ctxmenu position
+    POINT point = {x, y};
+    if (!rightclick) { // Shift + F10
+      point = {dwpa.x, dwpa.y};
+      ClientToScreen(hwnd, &point);
+    }
+    // ctxmenu popup
     CheckMenuItem(popup, C_CMD_ERASER,
       dwpa.eraser ? MFS_CHECKED : MFS_UNCHECKED);
-    TrackPopupMenuEx(popup, 0, GET_X_LPARAM(lp), GET_Y_LPARAM(lp), hwnd, NULL);
+    TrackPopupMenuEx(popup, 0, point.x, point.y, hwnd, NULL);
     return 0;
   }
   case WM_COMMAND: {
