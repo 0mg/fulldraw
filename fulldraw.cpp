@@ -136,7 +136,7 @@ private:
     // presmax cross
     int length = w * presmax / dwpa.PRS_MAX;
     gpctx.DrawLine(&pen2, w / 2, (h - length) / 2, w / 2, (h + length) / 2);
-    gpctx.DrawLine(&pen2, (w -length) / 2, h / 2, (w + length) / 2, h / 2);
+    gpctx.DrawLine(&pen2, (w - length) / 2, h / 2, (w + length) / 2, h / 2);
     // convert DC to bits
     for (int y = 0; y < h; y++) {
       for (int x = 0; x < w;) {
@@ -165,7 +165,7 @@ private:
     return CreateCursor(GetModuleHandle(NULL), x, y, w, h, band, bxor);
   }
 public:
-  BOOL setCursor(HWND hwnd, DrawParams &dwpa, BOOL arrow = 0, BOOL redraw = TRUE) {
+  BOOL setCursor(HWND hwnd, DrawParams &dwpa, BOOL arrow = C_CS_PEN, BOOL redraw = TRUE) {
     HCURSOR cursor = arrow == C_CS_ARROW ?
       (HCURSOR)LoadImage(NULL, IDC_ARROW, IMAGE_CURSOR, 0, 0, LR_SHARED) :
       create(hwnd, dwpa);
