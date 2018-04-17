@@ -39,11 +39,19 @@ public:
     Graphics gpctx(dc);
     gpctx.Clear(Color(bgcolor));
   }
-  void copyToBitmap(Bitmap &bm) {
-    Graphics ctx(&bm);
+  void copyToBitmap(Bitmap *bm) {
+    Graphics ctx(bm);
     HDC bmdc = ctx.GetHDC();
     BitBlt(bmdc, 0, 0, width, height, dc, 0, 0, SRCCOPY);
     ctx.ReleaseHDC(bmdc);
+  }
+  void save() {
+    Bitmap bm(width, height);
+    copyToBitmap(&bm);
+    // PNG {557CF406-1A04-11D3-9A73-0000F81EF32E}
+    CLSID clsid = {0x557CF406, 0x1A04, 0x11D3,
+      {0x9A, 0x73, 0x00, 0x00, 0xF8, 0x1E, 0xF3, 0x2E}};
+    bm.Save(L"fulldraw.png", &clsid, NULL);
   }
   void end() {
     DeleteDC(dc);
@@ -428,6 +436,14 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     }
     case VK_RIGHT: {
       SendMessage(hwnd, WM_COMMAND, C_CMD_PRS_IN, 0);
+      return 0;
+    }
+    case 'S': {
+      if (ctrl) {
+        dcb1.save();
+      } else {
+        break;
+      }
       return 0;
     }
     }
