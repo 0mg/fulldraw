@@ -11,8 +11,6 @@ using namespace Gdiplus;
 #define C_SCHEIGHT GetSystemMetrics(SM_CYSCREEN)
 #define C_FGCOLOR Color(255, 0, 0, 0)
 #define C_BGCOLOR Color(255, 255, 255, 255)
-#define C_DR_DOT 1
-#define C_CS_ARROW 1
 
 void __start__() {
   // program will start from here if `gcc -nostartfiles`
@@ -96,6 +94,8 @@ int DrawParams::PEN_MIN; int DrawParams::PEN_MAX; int DrawParams::PEN_INDE;
 int DrawParams::PRS_MIN; int DrawParams::PRS_MAX; int DrawParams::PRS_INDE;
 BOOL DrawParams::staticsReadied = FALSE;
 
+#define C_CS_PEN 0
+#define C_CS_ARROW 1
 static class tagPenUI {
 private:
   void drawBMP(HWND hwnd, BYTE *ptr, int w, int h, DrawParams &dwpa) {
@@ -155,7 +155,9 @@ public:
 } PenUI;
 
 // C_CMD_DRAW v2.0
-int drawRender(HWND hwnd, HDC dc, DrawParams &dwpa, BOOL dot = 0) {
+#define C_DR_LINE 0
+#define C_DR_DOT 1
+int drawRender(HWND hwnd, HDC dc, DrawParams &dwpa, BOOL dot = C_DR_LINE) {
   // draw line
   int pressure = dwpa.pressure;
   int penmax = dwpa.penmax;
@@ -272,7 +274,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     }
     if (nodraw) return 0;
     if (dwpa.pressure) {
-      drawRender(hwnd, dcb1.dc, dwpa);
+      drawRender(hwnd, dcb1.dc, dwpa, C_DR_LINE);
     }
     return 0;
   }
@@ -284,7 +286,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   }
   case WM_NCPOINTERUP: { // WM_NCPOINTERUP is not be sent on click titlebar
     nodraw = FALSE;
-    PenUI.setCursor(hwnd, dwpa, 0, FALSE);
+    PenUI.setCursor(hwnd, dwpa, C_CS_PEN, FALSE);
     return 0;
   }
   case WM_CONTEXTMENU: { // WM_CONTEXTMENU's lp is [screen x,y]
@@ -432,7 +434,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       SetWindowLongPtr(hwnd, GWL_EXSTYLE, WS_EX_TOPMOST);
       SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
       if (LOWORD(wp) == WA_ACTIVE) {
-        if (!nodraw) PenUI.setCursor(hwnd, dwpa, 0, FALSE);
+        if (!nodraw) PenUI.setCursor(hwnd, dwpa, C_CS_PEN, FALSE);
       }
     }
     return 0;
