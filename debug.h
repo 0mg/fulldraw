@@ -13,11 +13,8 @@ void tou(LPTSTR str, HWND hwnd, int bottom, int height = 0) {
 }
 
 LPTSTR es(LPTSTR s) {
-  FormatMessage(
-    FORMAT_MESSAGE_FROM_SYSTEM |
-    FORMAT_MESSAGE_IGNORE_INSERTS,
-    NULL, GetLastError(), MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), s, 0, NULL
-  );
+  FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM, NULL, GetLastError(), 0,
+    s, 1024, NULL);
   return s;
 }
 
