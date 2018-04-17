@@ -382,7 +382,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     }
     case C_CMD_CLEAR: {
       if (MessageBox(hwnd, TEXT("clear?"),
-      C_APPNAME_STR, MB_OKCANCEL | MB_ICONQUESTION) == IDOK) {
+      C_APPNAME_STR, MB_OKCANCEL | MB_ICONQUESTION | MB_DEFBUTTON2) == IDOK) {
         dcb1.cls();
         InvalidateRect(hwnd, NULL, FALSE);
         UpdateWindow(hwnd);
@@ -519,7 +519,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     if (TRUE) {
     #else
     if (MessageBox(hwnd, TEXT("exit?"),
-    C_APPNAME_STR, MB_OKCANCEL | MB_ICONWARNING) == IDOK) {
+    C_APPNAME_STR, MB_OKCANCEL | MB_ICONWARNING | MB_DEFBUTTON2) == IDOK) {
     #endif
       dcb1.end();
       DestroyWindow(hwnd);
