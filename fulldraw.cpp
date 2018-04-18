@@ -360,6 +360,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       TCHAR vertxt[100];
       wsprintf(vertxt, TEXT("%s v%d.%d.%d.%d"), C_APPNAME_STR, C_APPVER);
       MSGBOXPARAMS mbpa;
+      SecureZeroMemory(&mbpa, sizeof(MSGBOXPARAMS));
       mbpa.cbSize = sizeof(MSGBOXPARAMS);
       mbpa.hwndOwner = hwnd;
       mbpa.hInstance = GetModuleHandle(NULL);
@@ -367,9 +368,6 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       mbpa.lpszCaption = TEXT("version");
       mbpa.dwStyle = MB_USERICON;
       mbpa.lpszIcon = MAKEINTRESOURCE(C_APPICON);
-      mbpa.dwContextHelpId = 0;
-      mbpa.lpfnMsgBoxCallback = NULL;
-      mbpa.dwLanguageId = LANG_JAPANESE;
       MessageBoxIndirect(&mbpa);
       return 0;
     }
