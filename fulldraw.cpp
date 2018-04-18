@@ -405,17 +405,16 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     return 0;
   }
   case WM_KEYDOWN: {
-    int ctrl = GetAsyncKeyState(VK_CONTROL);
-    switch (wp) {
+    DWORD alt = ('!' * 0x1000000) * !!(GetKeyState(VK_MENU) & 0x8000);
+    DWORD shift = ('+' * 0x10000) * !!(GetKeyState(VK_SHIFT) & 0x8000);
+    DWORD ctrl = ('^' * 0x100) * !!(GetKeyState(VK_CONTROL) & 0x8000);
+    // '+^K': Shift+Ctrl+K, '^K': Ctrl+K, '+\0K': Shift+K
+    switch (alt | shift | ctrl | wp) {
     case VK_ESCAPE: PostMessage(hwnd, WM_COMMAND, C_CMD_EXIT, 0); return 0;
     case VK_DELETE: PostMessage(hwnd, WM_COMMAND, C_CMD_CLEAR, 0); return 0;
     case VK_F5: PostMessage(hwnd, WM_COMMAND, C_CMD_REFRESH, 0); return 0;
-    case 'M': {
-      if (ctrl) {
-        PostMessage(hwnd, WM_COMMAND, C_CMD_MINIMIZE, 0);
-      } else {
-        break;
-      }
+    case '^M': {
+      PostMessage(hwnd, WM_COMMAND, C_CMD_MINIMIZE, 0);
       return 0;
     }
     case 'E': {
@@ -438,12 +437,8 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       SendMessage(hwnd, WM_COMMAND, C_CMD_PRS_IN, 0);
       return 0;
     }
-    case 'S': {
-      if (ctrl) {
-        dcb1.save();
-      } else {
-        break;
-      }
+    case '^S': {
+      dcb1.save();
       return 0;
     }
     }
