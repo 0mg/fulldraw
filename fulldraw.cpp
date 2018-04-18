@@ -59,13 +59,13 @@ public:
     BitBlt(bmdc, 0, 0, width, height, dc, 0, 0, SRCCOPY);
     ctx.ReleaseHDC(bmdc);
   }
-  void save() {
+  void save(LPWSTR pathname) {
     Bitmap bm(width, height);
     copyToBitmap(&bm);
     // PNG {557CF406-1A04-11D3-9A73-0000F81EF32E}
     CLSID clsid = {0x557CF406, 0x1A04, 0x11D3,
       {0x9A, 0x73, 0x00, 0x00, 0xF8, 0x1E, 0xF3, 0x2E}};
-    bm.Save(L"fulldraw.png", &clsid, NULL);
+    bm.Save(pathname, &clsid, NULL);
   }
   void end() {
     DeleteDC(dc);
@@ -418,6 +418,25 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       MessageBoxIndirect(&mbpa);
       return 0;
     }
+    case C_CMD_SAVEAS: {
+      const SIZE_T pathmax = 0x1000;
+      WCHAR pathname[pathmax]; // = L"default.name" // memset
+      lstrcpyW(pathname, L"fulldraw.png"); // non-memset
+      OPENFILENAMEW ofn;
+      SecureZeroMemory(&ofn, sizeof(OPENFILENAME));
+      ofn.lStructSize = sizeof(OPENFILENAME);
+      ofn.hwndOwner = hwnd;
+      ofn.lpstrFilter = L"image/png (*.png)\0*.png\0" L"*.*\0*.*\0\0";
+      ofn.nMaxCustFilter = 0x1000;
+      ofn.lpstrFile = pathname;
+      ofn.nMaxFile = pathmax;
+      ofn.lpstrDefExt = L"png";
+      ofn.Flags = OFN_OVERWRITEPROMPT;
+      if (GetSaveFileNameW(&ofn)) {
+        dcb1.save(pathname);
+      }
+      return 0;
+    }
     case C_CMD_ERASER: {
       dwpa.eraser = !dwpa.eraser;
       return 0;
@@ -482,8 +501,8 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       SendMessage(hwnd, WM_COMMAND, C_CMD_PRS_IN, 0);
       return 0;
     }
-    case '^S': {
-      dcb1.save();
+    case '+^S': {
+      SendMessage(hwnd, WM_COMMAND, C_CMD_SAVEAS, 0);
       return 0;
     }
     #ifdef dev

@@ -16,9 +16,12 @@ C_CTXMENU MENU {
     MENUITEM SEPARATOR
     MENUITEM "refresh\tF5", C_CMD_REFRESH
     MENUITEM "minimize\tCtrl+M", C_CMD_MINIMIZE
-    MENUITEM "version...", C_CMD_VERSION
     MENUITEM SEPARATOR
     MENUITEM "clear\tDel", C_CMD_CLEAR
+    MENUITEM SEPARATOR
+    MENUITEM "version...", C_CMD_VERSION
+    MENUITEM SEPARATOR
+    MENUITEM "save as...\tCtrl+Shift+S", C_CMD_SAVEAS
     MENUITEM "exit\tEsc", C_CMD_EXIT
   }
 }
