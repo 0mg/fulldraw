@@ -16,4 +16,3 @@
 #define C_CMD_PEN_DE 0xAE0F
 #define C_CMD_PRS_IN 0xA901
 #define C_CMD_PRS_DE 0xA90F
-
