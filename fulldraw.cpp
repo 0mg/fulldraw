@@ -3,6 +3,7 @@
 #include <gdiplus.h>
 using namespace Gdiplus;
 
+#include "util.h"
 #include "fulldraw.h"
 
 // defs that *.rc never call
@@ -531,7 +532,7 @@ int WINAPI WinMain(HINSTANCE hi, HINSTANCE hp, LPSTR cl, int cs) {
     NULL, NULL, hi, NULL
   );
   // WinMain() must return 0 before msg loop
-  if (hwnd == NULL) return 0;
+  if (hwnd == NULL) { popError(); return 0; }
 
   // main
   MSG msg;
