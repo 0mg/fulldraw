@@ -381,7 +381,6 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       ofn.lStructSize = sizeof(OPENFILENAME);
       ofn.hwndOwner = hwnd;
       ofn.lpstrFilter = L"image/png (*.png)\0*.png\0" L"*.*\0*.*\0\0";
-      ofn.nMaxCustFilter = 0x1000;
       ofn.lpstrFile = pathname;
       ofn.nMaxFile = pathmax;
       ofn.lpstrDefExt = L"png";
