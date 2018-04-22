@@ -167,7 +167,7 @@ private:
     BYTE band[sz];
     BYTE bxor[sz];
     for (int i = 0; i < sz; i++) {
-      band[i] = 0xff;
+      ((volatile BYTE *)band)[i] = 0xff; // if 0x00 : must volatile
     }
     drawBMP(hwnd, bxor, w, h, dwpa);
     int x = w / 2, y = h / 2;
