@@ -306,6 +306,13 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   #endif
   switch (msg) {
   case WM_CREATE: {
+    #ifdef dev
+    SetWindowLongPtr(hwnd, GWL_STYLE, WS_OVERLAPPEDWINDOW);
+    SetWindowPos(hwnd, HWND_TOP, 80, 80, C_SCWIDTH/1.5, C_SCHEIGHT/1.5, 0);
+    chwnd = createDebugWindow(hwnd, TEXT("fdw_dbg"));
+    //chwnd2 = createDebugWindow(hwnd, TEXT("fdw_dbg2"));
+    //SetWindowPos(chwnd2, HWND_TOP, C_SCWIDTH-300, 0, 300, C_SCHEIGHT, 0);
+    #endif
     // x, y
     dwpa.init();
     // ready bitmap buffer
@@ -320,13 +327,6 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     // menu
     menu = LoadMenu(GetModuleHandle(NULL), MAKEINTRESOURCE(C_CTXMENU));
     popup = GetSubMenu(menu, 0);
-    #ifdef dev
-    SetWindowLongPtr(hwnd, GWL_STYLE, WS_OVERLAPPEDWINDOW);
-    SetWindowPos(hwnd, HWND_TOP, 80, 80, C_SCWIDTH/1.5, C_SCHEIGHT/1.5, 0);
-    chwnd = createDebugWindow(hwnd, TEXT("fdw_dbg"));
-    //chwnd2 = createDebugWindow(hwnd, TEXT("fdw_dbg2"));
-    //SetWindowPos(chwnd2, HWND_TOP, C_SCWIDTH-300, 0, 300, C_SCHEIGHT, 0);
-    #endif
     // post WM_POINTERXXX on mouse move
     EnableMouseInPointer(TRUE);
     return 0;
