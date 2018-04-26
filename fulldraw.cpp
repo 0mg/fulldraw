@@ -165,7 +165,7 @@ public:
       (HCURSOR)LoadImage(NULL, IDC_ARROW, IMAGE_CURSOR, 0, 0, LR_SHARED) :
       create(hwnd, dwpa);
     HCURSOR old = (HCURSOR)GetClassLongPtr(hwnd, GCLP_HCURSOR);
-    SetClassLongPtr(hwnd, GCL_HCURSOR, (LONG)cursor);
+    SetClassLongPtr(hwnd, GCLP_HCURSOR, (LONG_PTR)cursor);
     DestroyCursor(old);
     if (redraw) SetCursor(cursor);
     return 0;
@@ -519,11 +519,12 @@ int WINAPI WinMain(HINSTANCE hi, HINSTANCE hp, LPSTR cl, int cs) {
   wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
   wc.lpszClassName = C_WINDOW_CLASS;
   wc.hIconSm = (HICON)LoadImage(hi, MAKEINTRESOURCE(C_APPICON), IMAGE_ICON, 0, 0, LR_DEFAULTCOLOR);
+  RegisterClassEx(&wc);
 
   // Main Window: Create, Show
   HWND hwnd = CreateWindowEx(
     WS_EX_TOPMOST,
-    (LPCTSTR)MAKELONG(RegisterClassEx(&wc), 0), C_APPNAME_STR,
+    wc.lpszClassName, C_APPNAME_STR,
     WS_VISIBLE | WS_SYSMENU | WS_POPUP,
     0, 0,
     C_SCWIDTH,
