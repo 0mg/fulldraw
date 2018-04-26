@@ -126,8 +126,7 @@ int DrawParams::PEN_MIN; int DrawParams::PEN_MAX; int DrawParams::PEN_INDE;
 int DrawParams::PRS_MIN; int DrawParams::PRS_MAX; int DrawParams::PRS_INDE;
 BOOL DrawParams::staticsReadied = FALSE;
 
-#define C_CS_PEN 0
-#define C_CS_ARROW 1
+enum C_CS_TYPE {C_CS_PEN, C_CS_ARROW};
 static class tagPenUI {
 private:
   void drawBMP(HWND hwnd, BYTE *ptr, int w, int h, DrawParams &dwpa) {
@@ -174,8 +173,8 @@ private:
     return CreateCursor(GetModuleHandle(NULL), x, y, w, h, band, bxor);
   }
 public:
-  BOOL setCursor(HWND hwnd, DrawParams &dwpa, BOOL arrow = C_CS_PEN, BOOL redraw = TRUE) {
-    HCURSOR cursor = arrow == C_CS_ARROW ?
+  BOOL setCursor(HWND hwnd, DrawParams &dwpa, C_CS_TYPE type = C_CS_PEN, BOOL redraw = TRUE) {
+    HCURSOR cursor = type == C_CS_ARROW ?
       (HCURSOR)LoadImage(NULL, IDC_ARROW, IMAGE_CURSOR, 0, 0, LR_SHARED) :
       create(hwnd, dwpa);
     HCURSOR old = (HCURSOR)GetClassLongPtr(hwnd, GCLP_HCURSOR);
@@ -187,9 +186,8 @@ public:
 } PenUI;
 
 // C_CMD_DRAW v2.0
-#define C_DR_LINE 0
-#define C_DR_DOT 1
-int drawRender(HWND hwnd, HDC dc, DrawParams &dwpa, BOOL dot = C_DR_LINE) {
+enum C_DR_TYPE {C_DR_LINE, C_DR_DOT};
+int drawRender(HWND hwnd, HDC dc, DrawParams &dwpa, C_DR_TYPE type) {
   // draw line
   int pressure = dwpa.pressure;
   int penmax = dwpa.penmax;
@@ -208,7 +206,7 @@ int drawRender(HWND hwnd, HDC dc, DrawParams &dwpa, BOOL dot = C_DR_LINE) {
     Graphics buffer(dc);
     Graphics *gpctx = i ? &buffer : &screen;
     gpctx->SetSmoothingMode(SmoothingModeAntiAlias);
-    if (dot == C_DR_DOT) {
+    if (type == C_DR_DOT) {
       gpctx->DrawLine(&pen2, (REAL)x - 0.1, (REAL)y, (REAL)x, (REAL)y);
     } else {
       gpctx->DrawLine(&pen2, oldx, oldy, x, y);
