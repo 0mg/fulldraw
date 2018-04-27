@@ -40,15 +40,12 @@ public:
   HDC dc;
   ARGB bgcolor;
   void init(HWND hwnd, int w, int h, Color color) {
-    HDC hdc = GetDC(hwnd);
-    dc = CreateCompatibleDC(hdc);
-    HBITMAP bmp = CreateCompatibleBitmap(hdc, w, h);
-    SelectObject(dc, bmp);
+    Bitmap bm(w, h);
+    Graphics g(&bm);
+    dc = g.GetHDC();
     width = w, height = h;
     bgcolor = color.GetValue();
     cls();
-    ReleaseDC(hwnd, hdc);
-    DeleteObject(bmp);
   }
   void cls() {
     Graphics gpctx(dc);
@@ -217,7 +214,7 @@ int drawRender(HWND hwnd, HDC dc, DrawParams &dwpa, C_DR_TYPE type) {
 
 LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   static DrawParams dwpa;
-  static DCBuffer dcb1;
+  static DCBuffer dcb1, dcb2, dcbg, *dcbA, *dcbB;
   static BOOL nodraw = FALSE; // no draw dot on activated window by click
   static HMENU popup;
   #ifdef dev
@@ -240,7 +237,11 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     // x, y
     dwpa.init();
     // ready bitmap buffer
-    dcb1.init(hwnd, C_SCWIDTH, C_SCHEIGHT, C_BGCOLOR);
+    dcb1.init(hwnd, C_SCWIDTH, C_SCHEIGHT, Color::Transparent);
+    dcb2.init(hwnd, dcb1.width, dcb1.height, Color(dcb1.bgcolor));
+    dcbg.init(hwnd, C_SCWIDTH, C_SCHEIGHT, C_BGCOLOR);
+    dcbA = &dcb1;
+    dcbB = &dcb2;
     // cursor
     PenUI.setCursor(hwnd, dwpa);
     // menu
@@ -261,9 +262,18 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     return 1;
   }
   case WM_PAINT: {
+    dcbg.cls();
+    BLENDFUNCTION bfB = {AC_SRC_OVER, 0, 0x30, AC_SRC_ALPHA};
+    AlphaBlend(
+      dcbg.dc, 0, 0, dcbg.width, dcbg.height,
+      dcbB->dc, 0, 0, dcbB->width, dcbB->height, bfB);
+    BLENDFUNCTION bfA = {AC_SRC_OVER, 0, 0xFF, AC_SRC_ALPHA};
+    AlphaBlend(
+      dcbg.dc, 0, 0, dcbg.width, dcbg.height,
+      dcbA->dc, 0, 0, dcbA->width, dcbA->height, bfA);
     PAINTSTRUCT ps;
     HDC odc = BeginPaint(hwnd, &ps);
-    BitBlt(odc, 0, 0, C_SCWIDTH, C_SCHEIGHT, dcb1.dc, 0, 0, SRCCOPY);
+    BitBlt(odc, 0, 0, C_SCWIDTH, C_SCHEIGHT, dcbg.dc, 0, 0, SRCCOPY);
     EndPaint(hwnd, &ps);
     return 0;
   }
@@ -302,7 +312,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     }
     }
     if (nodraw) return 0; // no need to movePoint()
-    drawRender(hwnd, dcb1.dc, dwp2, C_DR_DOT);
+    drawRender(hwnd, dcbA->dc, dwp2, C_DR_DOT);
     return 0;
   }
   case WM_POINTERUPDATE: {
@@ -334,7 +344,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     #endif
     if (nodraw) return 0;
     if (dwpa.pressure) {
-      drawRender(hwnd, dcb1.dc, dwpa, C_DR_LINE);
+      drawRender(hwnd, dcbA->dc, dwpa, C_DR_LINE);
     }
     return 0;
   }
@@ -386,10 +396,18 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       PostMessage(hwnd, WM_CLOSE, 0, 0);
       return 0;
     }
+    case C_CMD_TURN: {
+      DCBuffer *tmp = dcbA;
+      dcbA = dcbB;
+      dcbB = tmp;
+      InvalidateRect(hwnd, NULL, FALSE);
+      UpdateWindow(hwnd);
+      return 0;
+    }
     case C_CMD_CLEAR: {
       if (MessageBox(hwnd, TEXT("clear?"),
       C_APPNAME_STR, MB_OKCANCEL | MB_ICONQUESTION | MB_DEFBUTTON2) == IDOK) {
-        dcb1.cls();
+        dcbA->cls();
         InvalidateRect(hwnd, NULL, FALSE);
         UpdateWindow(hwnd);
       }
@@ -428,7 +446,9 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       ofn.lpstrDefExt = L"png";
       ofn.Flags = OFN_OVERWRITEPROMPT;
       if (GetSaveFileNameW(&ofn)) {
-        dcb1.save(pathname);
+        InvalidateRect(hwnd, NULL, FALSE);
+        UpdateWindow(hwnd);
+        dcbg.save(pathname);
       }
       return 0;
     }
