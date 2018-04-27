@@ -345,6 +345,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     case C_CMD_REFRESH: {
       nodraw = FALSE;
       PenUI.setCursor(hwnd, dwpa);
+      InvalidateRect(hwnd, NULL, FALSE);
       SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, C_SCWIDTH, C_SCHEIGHT, 0);
       return 0;
     }
