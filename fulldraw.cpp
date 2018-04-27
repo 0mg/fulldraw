@@ -263,10 +263,12 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   }
   case WM_PAINT: {
     dcbg.cls();
-    BLENDFUNCTION bfB = {AC_SRC_OVER, 0, 0x30, AC_SRC_ALPHA};
+    BLENDFUNCTION bfB = {AC_SRC_OVER, 0, 0x0F, AC_SRC_ALPHA};
     AlphaBlend(
       dcbg.dc, 0, 0, dcbg.width, dcbg.height,
       dcbB->dc, 0, 0, dcbB->width, dcbB->height, bfB);
+    StretchBlt(dcbg.dc, dcbg.width, 0, -dcbg.width, dcbg.height,
+      dcbg.dc, 0, 0, dcbg.width, dcbg.height, SRCCOPY);
     BLENDFUNCTION bfA = {AC_SRC_OVER, 0, 0xFF, AC_SRC_ALPHA};
     AlphaBlend(
       dcbg.dc, 0, 0, dcbg.width, dcbg.height,
