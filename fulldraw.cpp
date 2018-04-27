@@ -567,7 +567,6 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     if (MessageBox(hwnd, TEXT("exit?"),
     C_APPNAME_STR, MB_OKCANCEL | MB_ICONWARNING | MB_DEFBUTTON2) == IDOK) {
     #endif
-      dcb1.end();
       DestroyWindow(hwnd);
     }
     return 0;
