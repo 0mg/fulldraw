@@ -503,6 +503,10 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       SendMessage(hwnd, WM_COMMAND, C_CMD_ERASER, 0);
       return 0;
     }
+    case 'T': {
+      SendMessage(hwnd, WM_COMMAND, C_CMD_TURN, 0);
+      return 0;
+    }
     case VK_DOWN: {
       SendMessage(hwnd, WM_COMMAND, C_CMD_PEN_DE, 0);
       return 0;
