@@ -218,7 +218,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   static BOOL nodraw = FALSE; // no draw dot on activated window by click
   static HMENU popup;
   #ifdef dev
-  static BOOL msgLogOn = 1;
+  static BOOL msgLogOn = .1;
   const SIZE_T mslen = 50; static LPARAM mss[mslen];
   const SIZE_T txlen = mslen * 100; TCHAR txs[txlen];
   SecureZeroMemory(txs, sizeof(TCHAR) * txlen);
