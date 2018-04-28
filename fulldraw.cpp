@@ -226,6 +226,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     return 1;
   }
   case WM_PAINT: {
+    // background += layerB + layerA
     dcbg.cls();
     BLENDFUNCTION bfB = {AC_SRC_OVER, 0, 0x0F, AC_SRC_ALPHA};
     AlphaBlend(
@@ -237,6 +238,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     AlphaBlend(
       dcbg.dc, 0, 0, dcbg.width, dcbg.height,
       dcbA->dc, 0, 0, dcbA->width, dcbA->height, bfA);
+    // update screen
     PAINTSTRUCT ps;
     HDC odc = BeginPaint(hwnd, &ps);
     BitBlt(odc, 0, 0, C_SCWIDTH, C_SCHEIGHT, dcbg.dc, 0, 0, SRCCOPY);
