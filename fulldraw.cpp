@@ -228,7 +228,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   case WM_PAINT: {
     // background += layerB + layerA
     dcbg.cls();
-    BLENDFUNCTION bfB = {AC_SRC_OVER, 0, 0x0F, AC_SRC_ALPHA};
+    BLENDFUNCTION bfB = {AC_SRC_OVER, 0, 0x15, AC_SRC_ALPHA};
     GdiAlphaBlend(
       dcbg.dc, 0, 0, dcbg.width, dcbg.height,
       dcbB->dc, 0, 0, dcbB->width, dcbB->height, bfB);
