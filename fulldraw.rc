@@ -14,7 +14,7 @@ C_CTXMENU MENU {
       MENUITEM "softer\t←", C_CMD_PRS_DE
     }
     MENUITEM SEPARATOR
-    MENUITEM "turn\tT", C_CMD_TURN
+    MENUITEM "flip\tH", C_CMD_FLIP
     MENUITEM "clear\tDel", C_CMD_CLEAR
     MENUITEM SEPARATOR
     MENUITEM "refresh\tF5", C_CMD_REFRESH
