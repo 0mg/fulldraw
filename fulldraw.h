@@ -6,7 +6,7 @@
 #define C_CTXMENU 0xC07E
 #define C_CMD_VERSION 0x5E75
 #define C_CMD_REFRESH 0xAB32
-#define C_CMD_TURN 0xABBA
+#define C_CMD_FLIP 0xABBA
 #define C_CMD_CLEAR 0x000C
 #define C_CMD_MINIMIZE 0x2130
 #define C_CMD_SAVEAS 0x5AA5

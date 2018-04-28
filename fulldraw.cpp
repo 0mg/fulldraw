@@ -357,7 +357,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       PostMessage(hwnd, WM_CLOSE, 0, 0);
       return 0;
     }
-    case C_CMD_TURN: {
+    case C_CMD_FLIP: {
       DCBuffer *tmp = dcbA;
       dcbA = dcbB;
       dcbB = tmp;
@@ -461,8 +461,8 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       SendMessage(hwnd, WM_COMMAND, C_CMD_ERASER, 0);
       return 0;
     }
-    case 'T': {
-      SendMessage(hwnd, WM_COMMAND, C_CMD_TURN, 0);
+    case 'H': {
+      SendMessage(hwnd, WM_COMMAND, C_CMD_FLIP, 0);
       return 0;
     }
     case VK_DOWN: {
