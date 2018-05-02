@@ -132,6 +132,12 @@ private:
     int length = w * presmax / dwpa.PRS_MAX;
     gpctx.DrawLine(&pen2, w / 2, (h - length) / 2, w / 2, (h + length) / 2);
     gpctx.DrawLine(&pen2, (w - length) / 2, h / 2, (w + length) / 2, h / 2);
+    // eraser icon
+    if (0*dwpa.eraser) {
+      pen2.SetDashStyle(DashStyleDot);
+      gpctx.DrawLine(&pen2, 0, 0, w, h);
+      gpctx.DrawLine(&pen2, w, 0, 0, h);
+    }
     // convert DC to bits
     for (int y = 0; y < h; y++) {
       for (int x = 0; x < w;) {
@@ -228,7 +234,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   static BOOL exitmenu = FALSE; // no draw dot on close menu by click outside
   static HMENU popup;
   #ifdef dev
-  static BOOL msgLogOn = .1;
+  static BOOL msgLogOn = 1;
   const SIZE_T mslen = 50; static LPARAM mss[mslen];
   const SIZE_T txlen = mslen * 100; TCHAR txs[txlen];
   SecureZeroMemory(txs, sizeof(TCHAR) * txlen);
@@ -265,6 +271,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     SetWindowLongPtr(hwnd, GWL_STYLE, WS_OVERLAPPEDWINDOW);
     SetWindowPos(hwnd, HWND_TOP, 0, 80, C_SCWIDTH/1.5, C_SCHEIGHT/1.5, 0);
     PostMessage(hwnd, WM_SYSCOMMAND, SC_MAXIMIZE, 0);
+    dwpa.penmax = 0xFF; dwpa.presmax = 0; dwpa.updatePenPres();
     #endif
     // post WM_POINTERXXX on mouse move
     EnableMouseInPointer(TRUE);
@@ -562,6 +569,9 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       return 0;
     }
     #ifdef dev
+    case VK_SPACE: {
+      return 0;
+    }
     case 'K': msgLogOn ^= 1; return 0;
     default: {
       touf("key: %d(%c)", wp, wp);
