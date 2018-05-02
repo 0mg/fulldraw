@@ -19,6 +19,10 @@ void __start__() {
   // program will start from here if `gcc -nostartfiles`
   ExitProcess(WinMain(GetModuleHandle(NULL), 0, NULL, 0));
 }
+void free(void *p) {
+  // use this dummy with keep safety
+  // must keep what `call _free` is not exist in *.asm (cl.exe /Fa)
+}
 
 class DCBuffer {
 public:
