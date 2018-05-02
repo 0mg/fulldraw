@@ -11,11 +11,11 @@ void popError(HWND hwnd = NULL) {
 class Array {
 public:
   LPVOID data;
-  Array(SIZE_T unit, SIZE_T length = 0) {init(unit, length);}
+  Array(SIZE_T unit, SIZE_T length) {init(unit, length);}
   Array() {}
-  int init(SIZE_T unit, SIZE_T length = 0) {
+  int init(SIZE_T unit, SIZE_T length) {
     if (data != NULL && free() != 0) return -1;
-    if (allocate(unit * length, 0) == 0) {
+    if (allocate(unit * length, MODE_ALLOC) == 0) {
       dataUnit = unit;
       dataLength = length;
     }
@@ -23,7 +23,7 @@ public:
   }
   int push(LPVOID source) {
     if (sizeof(source) != dataUnit) return -1;
-    if (resize(dataUnit * (dataLength + 1))) return -2;
+    if (allocate(dataUnit * (dataLength + 1), MODE_REALLOC)) return -2;
     copy(source, dataUnit * dataLength);
     dataLength++;
     return dataLength;
@@ -33,7 +33,7 @@ public:
   }
   int setLength(SIZE_T newlen) {
     SIZE_T newsize = dataUnit * newlen;
-    if (resize(newsize)) {
+    if (allocate(newsize, MODE_REALLOC)) {
       return dataLength = newsize;
     }
     return -1;
@@ -50,9 +50,10 @@ public:
     return 0;
   }
 private:
+  enum ALLOC_MODE {MODE_ALLOC, MODE_REALLOC};
   SIZE_T dataUnit;
   int dataLength;
-  int allocate(SIZE_T size, int mode = 0) {
+  int allocate(SIZE_T size, ALLOC_MODE mode) {
     HANDLE heap = GetProcessHeap();
     if (heap == NULL) return -1;
     LPVOID p;
@@ -64,9 +65,6 @@ private:
     if (p == NULL) return -2;
     data = p;
     return 0;
-  }
-  int resize(SIZE_T size) {
-    return allocate(size, 1);
   }
   int getSize() {
     HANDLE heap = GetProcessHeap();
