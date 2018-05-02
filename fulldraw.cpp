@@ -225,6 +225,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   static DrawParams dwpa;
   static DCBuffer dcb1, dcb2, dcbg, dceraser, *dcbA, *dcbB;
   static BOOL nodraw = FALSE; // no draw dot on activated window by click
+  static BOOL exitmenu = FALSE; // no draw dot on close menu by click outside
   static HMENU popup;
   #ifdef dev
   static BOOL msgLogOn = .1;
@@ -338,6 +339,10 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       break;
     }
     }
+    if (exitmenu) {
+      nodraw = TRUE;
+      exitmenu = FALSE;
+    }
     if (nodraw) return 0; // no need to movePoint()
     drawRender(hwnd, dcbA, &dceraser, dwp2, C_DR_DOT);
     return 0;
@@ -369,6 +374,10 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     #ifdef dev
     wout
     #endif
+    if (exitmenu) {
+      exitmenu = FALSE;
+      PenUI.setCursor(hwnd, dwpa);
+    }
     if (nodraw) return 0;
     if (dwpa.pressure) {
       drawRender(hwnd, dcbA, &dceraser, dwpa, C_DR_LINE);
@@ -590,6 +599,11 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   case WM_POINTERACTIVATE: {
     nodraw = TRUE;
     return PA_ACTIVATE;
+  }
+  case WM_EXITMENULOOP: {
+    exitmenu = TRUE;
+    PenUI.setCursor(hwnd, dwpa, C_CS_ARROW);
+    return 0;
   }
   case WM_CLOSE: {
     #ifdef dev
