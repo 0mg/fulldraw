@@ -43,6 +43,7 @@ public:
   int width, height;
   HDC dc;
   ARGB bgcolor;
+  Bitmap *bmp;
   void init(HWND hwnd, int w, int h, Color color) {
     Bitmap bm(w, h);
     Graphics g(&bm);
@@ -50,6 +51,7 @@ public:
     width = w, height = h;
     bgcolor = color.GetValue();
     cls();
+    bmp = new Bitmap(width, height);
   }
   void cls() {
     Graphics gpctx(dc);
@@ -194,7 +196,7 @@ public:
 
 // C_CMD_DRAW v2.0
 enum C_DR_TYPE {C_DR_LINE, C_DR_DOT};
-int drawRender(HWND hwnd, HDC dc, DrawParams &dwpa, C_DR_TYPE type) {
+int drawRender(HWND hwnd, DCBuffer *dcb, DCBuffer *dceraser, DrawParams &dwpa, C_DR_TYPE type) {
   // draw line
   int pressure = dwpa.pressure;
   int penmax = dwpa.penmax;
@@ -210,9 +212,17 @@ int drawRender(HWND hwnd, HDC dc, DrawParams &dwpa, C_DR_TYPE type) {
   }
   for (int i = 0; i <= 1; i++) {
     Graphics screen(hwnd);
-    Graphics buffer(dc);
+    Graphics buffer(dcb->dc);
     Graphics *gpctx = i ? &buffer : &screen;
     gpctx->SetSmoothingMode(SmoothingModeAntiAlias);
+    if (dwpa.eraser) {
+      if (gpctx == &screen) {
+        TextureBrush brushE(dceraser->bmp);
+        pen2.SetBrush(&brushE);
+      } else {
+        pen2.SetColor(dcb->bgcolor);
+      }
+    }
     if (type == C_DR_DOT) {
       gpctx->DrawLine(&pen2, (REAL)x - 0.1, (REAL)y, (REAL)x, (REAL)y);
     } else {
@@ -224,7 +234,7 @@ int drawRender(HWND hwnd, HDC dc, DrawParams &dwpa, C_DR_TYPE type) {
 
 LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   static DrawParams dwpa;
-  static DCBuffer dcb1, dcb2, dcbg, *dcbA, *dcbB;
+  static DCBuffer dcb1, dcb2, dcbg, dceraser, *dcbA, *dcbB;
   static BOOL nodraw = FALSE; // no draw dot on activated window by click
   static BOOL exitmenu = FALSE; // no draw dot on close menu by click outside
   static HMENU popup;
@@ -248,9 +258,10 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     // x, y
     dwpa.init();
     // ready bitmap buffer
-    dcb1.init(hwnd, C_SCWIDTH, C_SCHEIGHT, Color::Transparent);
+    dcb1.init(hwnd, C_SCWIDTH, C_SCHEIGHT, C_BGCOLOR);
     dcb2.init(hwnd, dcb1.width, dcb1.height, Color(dcb1.bgcolor));
     dcbg.init(hwnd, C_SCWIDTH, C_SCHEIGHT, C_BGCOLOR);
+    dceraser.init(hwnd, C_SCWIDTH, C_SCHEIGHT, C_BGCOLOR);
     dcbA = &dcb1;
     dcbB = &dcb2;
     // cursor
@@ -283,10 +294,14 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       dcbB->dc, 0, 0, dcbB->width, dcbB->height, bfB);
     StretchBlt(dcbg.dc, dcbg.width, 0, -dcbg.width, dcbg.height,
       dcbg.dc, 0, 0, dcbg.width, dcbg.height, SRCCOPY);
-    BLENDFUNCTION bfA = {AC_SRC_OVER, 0, 0xFF, AC_SRC_ALPHA};
-    GdiAlphaBlend(
-      dcbg.dc, 0, 0, dcbg.width, dcbg.height,
-      dcbA->dc, 0, 0, dcbA->width, dcbA->height, bfA);
+    // eraser = bg
+    dceraser.cls();
+    BitBlt(dceraser.dc, 0, 0, dceraser.width, dceraser.height,
+      dcbg.dc, 0, 0, SRCCOPY);
+    dceraser.copyToBitmap(dceraser.bmp);
+    // bg += layerA
+    GdiTransparentBlt(dcbg.dc, 0, 0, dcbg.width, dcbg.height, dcbA->dc,
+      0, 0, dcbA->width, dcbA->height, Color(dcbA->bgcolor).ToCOLORREF());
     // update screen
     PAINTSTRUCT ps;
     HDC odc = BeginPaint(hwnd, &ps);
@@ -333,7 +348,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       exitmenu = FALSE;
     }
     if (nodraw) return 0; // no need to movePoint()
-    drawRender(hwnd, dcbA->dc, dwp2, C_DR_DOT);
+    drawRender(hwnd, dcbA, &dceraser, dwp2, C_DR_DOT);
     return 0;
   }
   case WM_POINTERUPDATE: {
@@ -369,7 +384,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     }
     if (nodraw) return 0;
     if (dwpa.pressure) {
-      drawRender(hwnd, dcbA->dc, dwpa, C_DR_LINE);
+      drawRender(hwnd, dcbA, &dceraser, dwpa, C_DR_LINE);
     }
     return 0;
   }
