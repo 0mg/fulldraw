@@ -56,9 +56,6 @@ public:
       {0x9A, 0x73, 0x00, 0x00, 0xF8, 0x1E, 0xF3, 0x2E}};
     bm.Save(pathname, &clsid, NULL);
   }
-  void end() {
-    DeleteDC(dc);
-  }
 };
 
 class DrawParams {
@@ -186,9 +183,6 @@ int drawRender(HWND hwnd, DCBuffer *dcb, DCBuffer *dceraser, DrawParams &dwpa, C
   Pen pen2(C_FGCOLOR, pensize); // Pen draws 1px line if pensize=0
   pen2.SetStartCap(LineCapRound);
   pen2.SetEndCap(LineCapRound);
-  if (dwpa.eraser) {
-    pen2.SetColor(C_BGCOLOR);
-  }
   for (int i = 0; i <= 1; i++) {
     Graphics screen(hwnd);
     Graphics buffer(dcb->dc);
