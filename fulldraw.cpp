@@ -21,8 +21,7 @@ void __start__() {
   ExitProcess(WinMain(GetModuleHandle(NULL), 0, NULL, 0));
 }
 void free(void *p) {
-  // use this dummy with keep safety
-  // must keep what `call _free` is not exist in *.asm (cl.exe /Fa)
+  // dummy for operator delete
 }
 
 #ifdef dev
@@ -286,8 +285,9 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     return 1;
   }
   case WM_PAINT: {
-    // background += layerB + layerA
+    // screen = bg = (eraser = bg + layerB) + layerA
     dcbg.cls();
+    // bg += layerB
     BLENDFUNCTION bfB = {AC_SRC_OVER, 0, 0x15, AC_SRC_ALPHA};
     GdiAlphaBlend(
       dcbg.dc, 0, 0, dcbg.width, dcbg.height,
@@ -302,7 +302,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     // bg += layerA
     GdiTransparentBlt(dcbg.dc, 0, 0, dcbg.width, dcbg.height, dcbA->dc,
       0, 0, dcbA->width, dcbA->height, Color(dcbA->bgcolor).ToCOLORREF());
-    // update screen
+    // screen = bg
     PAINTSTRUCT ps;
     HDC odc = BeginPaint(hwnd, &ps);
     BitBlt(odc, 0, 0, C_SCWIDTH, C_SCHEIGHT, dcbg.dc, 0, 0, SRCCOPY);
