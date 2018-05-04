@@ -5,7 +5,9 @@
 #include <d2d1helper.h>
 #include <gdiplus.h>
 using namespace Gdiplus;
+using namespace D2D1;
 
+#include "util.h"
 #include "fulldraw.h"
 
 // defs that *.rc never call
@@ -14,11 +16,15 @@ using namespace Gdiplus;
 #define C_SCHEIGHT GetSystemMetrics(SM_CYSCREEN)
 #define C_FGCOLOR Color(255, 0, 0, 0)
 #define C_BGCOLOR Color(255, 255, 255, 255)
-#define C_DR_DOT 1
+
+LPCTSTR C_APPNAME_STR = C_APPNAME;
 
 void __start__() {
   // program will start from here if `gcc -nostartfiles`
   ExitProcess(WinMain(GetModuleHandle(NULL), 0, NULL, 0));
+}
+void free(void *p) {
+  // dummy for operator delete
 }
 
 #ifdef dev
@@ -33,53 +39,37 @@ HDC chp1, chp2;
 #define touf4(f,...) wsprintf(ss,TEXT(f),__VA_ARGS__),tou(ss,chwnd,3)
 #define mboxf(f,...) wsprintf(ss,TEXT(f),__VA_ARGS__),MessageBox(NULL,ss,ss,0)
 #endif
-struct Buffer {
-  void *data;
-  Buffer(SIZE_T size) {
-    data = NULL;
-    HANDLE heap = GetProcessHeap();
-    if (heap == NULL) return;
-    data = HeapAlloc(heap, HEAP_ZERO_MEMORY, size);
-  }
-  BOOL copy(void *source, SIZE_T size) {
-    char *p = (char *)data, *q = (char *)source;
-    for (int i = 0; i < size; i++) {
-      *p++ = *q++;
-    }
-    return TRUE;
-  }
-  BOOL free() {
-    HANDLE heap = GetProcessHeap();
-    if (heap == NULL) return FALSE;
-    if (HeapFree(heap, 0, data)) {
-      data = NULL;
-      return TRUE;
-    }
-    return FALSE;
-  }
-};
 
 class DCBuffer {
 public:
+  int width, height;
   HDC dc;
   ARGB bgcolor;
   void init(HWND hwnd, int w, int h, Color color) {
-    HBITMAP bmp;
-    HDC hdc = GetDC(hwnd);
-    dc = CreateCompatibleDC(hdc);
-    bmp = CreateCompatibleBitmap(hdc, w, h);
-    SelectObject(dc, bmp);
-    DeleteObject(bmp);
+    Bitmap bm(w, h);
+    Graphics g(&bm);
+    dc = g.GetHDC();
+    width = w, height = h;
     bgcolor = color.GetValue();
     cls();
-    ReleaseDC(hwnd, hdc);
   }
   void cls() {
     Graphics gpctx(dc);
     gpctx.Clear(Color(bgcolor));
   }
-  void end() {
-    DeleteDC(dc);
+  void copyToBitmap(Bitmap *bm) {
+    Graphics ctx(bm);
+    HDC bmdc = ctx.GetHDC();
+    BitBlt(bmdc, 0, 0, width, height, dc, 0, 0, SRCCOPY);
+    ctx.ReleaseHDC(bmdc);
+  }
+  void save(LPWSTR pathname) {
+    Bitmap bm(width, height);
+    copyToBitmap(&bm);
+    // PNG {557CF406-1A04-11D3-9A73-0000F81EF32E}
+    CLSID clsid = {0x557CF406, 0x1A04, 0x11D3,
+      {0x9A, 0x73, 0x00, 0x00, 0xF8, 0x1E, 0xF3, 0x2E}};
+    bm.Save(pathname, &clsid, NULL);
   }
 };
 
@@ -136,7 +126,8 @@ int DrawParams::PEN_MIN; int DrawParams::PEN_MAX; int DrawParams::PEN_INDE;
 int DrawParams::PRS_MIN; int DrawParams::PRS_MAX; int DrawParams::PRS_INDE;
 BOOL DrawParams::staticsReadied = FALSE;
 
-static class Cursor {
+enum C_CS_TYPE {C_CS_PEN, C_CS_ARROW};
+static class tagPenUI {
 private:
   void drawBMP(HWND hwnd, BYTE *ptr, int w, int h, DrawParams &dwpa) {
     int penmax = dwpa.penmax;
@@ -153,7 +144,7 @@ private:
     // presmax cross
     int length = w * presmax / dwpa.PRS_MAX;
     gpctx.DrawLine(&pen2, w / 2, (h - length) / 2, w / 2, (h + length) / 2);
-    gpctx.DrawLine(&pen2, (w -length) / 2, h / 2, (w + length) / 2, h / 2);
+    gpctx.DrawLine(&pen2, (w - length) / 2, h / 2, (w + length) / 2, h / 2);
     // convert DC to bits
     for (int y = 0; y < h; y++) {
       for (int x = 0; x < w;) {
@@ -175,46 +166,53 @@ private:
     BYTE band[sz];
     BYTE bxor[sz];
     for (int i = 0; i < sz; i++) {
-      band[i] = 0xff;
+      ((volatile BYTE *)band)[i] = 0xff; // if 0x00 : must volatile
     }
     drawBMP(hwnd, bxor, w, h, dwpa);
     int x = w / 2, y = h / 2;
     return CreateCursor(GetModuleHandle(NULL), x, y, w, h, band, bxor);
   }
 public:
-  BOOL setCursor(HWND hwnd, DrawParams &dwpa) {
-    HCURSOR cursor = create(hwnd, dwpa);
+  BOOL setCursor(HWND hwnd, DrawParams &dwpa, C_CS_TYPE type = C_CS_PEN, BOOL redraw = TRUE) {
+    HCURSOR cursor = type == C_CS_ARROW ?
+      (HCURSOR)LoadImage(NULL, IDC_ARROW, IMAGE_CURSOR, 0, 0, LR_SHARED) :
+      create(hwnd, dwpa);
     HCURSOR old = (HCURSOR)GetClassLongPtr(hwnd, GCLP_HCURSOR);
-    SetClassLongPtr(hwnd, GCL_HCURSOR, (LONG)cursor);
-    SetCursor(cursor);
+    SetClassLongPtr(hwnd, GCLP_HCURSOR, (LONG_PTR)cursor);
     DestroyCursor(old);
+    if (redraw) SetCursor(cursor);
     return 0;
   }
-} cursor;
+} PenUI;
 
 // C_CMD_DRAW v2.0
-int drawRenderOrig(HWND hwnd, HDC dc, DrawParams &dwpa, BOOL dot = 0) {
+enum C_DR_TYPE {C_DR_LINE, C_DR_DOT};
+int drawRender(HWND hwnd, DCBuffer *dcb, Bitmap *bmbg, DrawParams &dwpa, C_DR_TYPE type) {
   // draw line
-  int pensize;
   int pressure = dwpa.pressure;
   int penmax = dwpa.penmax;
   int presmax = dwpa.presmax;
   int oldx = dwpa.oldx, oldy = dwpa.oldy, x = dwpa.x, y = dwpa.y;
   if (pressure > presmax) pressure = presmax;
-  pensize = pressure * penmax / presmax;
+  REAL pensize = pressure * (REAL)penmax / presmax;
   Pen pen2(C_FGCOLOR, pensize); // Pen draws 1px line if pensize=0
   pen2.SetStartCap(LineCapRound);
   pen2.SetEndCap(LineCapRound);
-  if (dwpa.eraser) {
-    pen2.SetColor(C_BGCOLOR);
-  }
   for (int i = 0; i <= 1; i++) {
     Graphics screen(hwnd);
-    Graphics buffer(dc);
+    Graphics buffer(dcb->dc);
     Graphics *gpctx = i ? &buffer : &screen;
     gpctx->SetSmoothingMode(SmoothingModeAntiAlias);
-    if (dot) {
-      gpctx->DrawLine(&pen2, (float)x - 0.1, (float)y, (float)x, (float)y);
+    if (dwpa.eraser) {
+      if (gpctx == &screen) {
+        TextureBrush brushE(bmbg);
+        pen2.SetBrush(&brushE);
+      } else {
+        pen2.SetColor(dcb->bgcolor);
+      }
+    }
+    if (type == C_DR_DOT) {
+      gpctx->DrawLine(&pen2, (REAL)x - 0.1, (REAL)y, (REAL)x, (REAL)y);
     } else {
       gpctx->DrawLine(&pen2, oldx, oldy, x, y);
     }
@@ -227,6 +225,7 @@ public:
   ID2D1Factory *factory;
   ID2D1HwndRenderTarget *screen;
   ID2D1BitmapRenderTarget* kanv;
+  ID2D1DCRenderTarget *dcreen;
   HRESULT init(HWND hwnd) {
     HRESULT hr = D2D1CreateFactory(
       D2D1_FACTORY_TYPE_MULTI_THREADED,
@@ -235,31 +234,48 @@ public:
     getScreen(hwnd);
     return hr;
   }
-  HRESULT getScreen(HWND hwnd) {
+  void getScreen(HWND hwnd) {
     RECT rc;
     GetClientRect(hwnd, &rc);
-    HRESULT hr = factory->CreateHwndRenderTarget(
-      D2D1::RenderTargetProperties(),
-      D2D1::HwndRenderTargetProperties(
+    factory->CreateHwndRenderTarget(
+      RenderTargetProperties(D2D1_RENDER_TARGET_TYPE_SOFTWARE,
+        {DXGI_FORMAT_UNKNOWN, D2D1_ALPHA_MODE_UNKNOWN},
+        0.0f, 0.0f,
+        D2D1_RENDER_TARGET_USAGE_GDI_COMPATIBLE,
+        D2D1_FEATURE_LEVEL_DEFAULT),
+      HwndRenderTargetProperties(
         hwnd,
-        D2D1::SizeU(rc.right - rc.left, rc.bottom - rc.top)
+        SizeU(rc.right - rc.left, rc.bottom - rc.top),
+        D2D1_PRESENT_OPTIONS_NONE
       ),
       &screen
     );
-    return hr;
+    factory->CreateDCRenderTarget(
+      &RenderTargetProperties(D2D1_RENDER_TARGET_TYPE_SOFTWARE,
+        {DXGI_FORMAT_B8G8R8A8_UNORM, D2D1_ALPHA_MODE_PREMULTIPLIED},
+        0.0f, 0.0f,
+        D2D1_RENDER_TARGET_USAGE_GDI_COMPATIBLE,
+        D2D1_FEATURE_LEVEL_DEFAULT),
+      &dcreen
+    );
   }
-  HRESULT createCanvas() {
+  void resizeScreen(HWND hwnd) {
+    screen->Release();
+    getScreen(hwnd);
+  }
+  /*HRESULT createCanvas() {
     HRESULT hr = screen->CreateCompatibleRenderTarget(&kanv);
     return hr;
-  }
+  }*/
   void end() {
     screen->Release();
+    dcreen->Release();
     factory->Release();
   }
 };
 
 // C_CMD_DRAW v3.0 (Direct2D)
-int drawRender(HWND hwnd, Direct2D &d2o, DrawParams &dwpa, BOOL dot = 0) {
+int drawRender2D(HWND hwnd, Direct2D &d2o, DrawParams &dwpa, BOOL dot = 0) {
   // draw line
   int pensize;
   int pressure = dwpa.pressure;
@@ -268,25 +284,37 @@ int drawRender(HWND hwnd, Direct2D &d2o, DrawParams &dwpa, BOOL dot = 0) {
   int oldx = dwpa.oldx, oldy = dwpa.oldy, x = dwpa.x, y = dwpa.y;
   if (pressure > presmax) pressure = presmax;
   pensize = pressure * penmax / presmax;
-  ID2D1RenderTarget *target = d2o.screen;
+  ID2D1DCRenderTarget *darget = d2o.dcreen;
+  ID2D1HwndRenderTarget *target = d2o.screen;
+  HDC hdc = GetDC(hwnd);
+  RECT rc;
+  GetClientRect(hwnd, &rc);
+  darget->BindDC(hdc, &rc);
   target->BeginDraw();
   D2D1_POINT_2F point1 = {(float)oldx, (float)oldy};
   D2D1_POINT_2F point2 = {(float)x, (float)y};
   if (dot) point1.x = (float)x + 0.1, point1.y = (float)y;
-  ID2D1SolidColorBrush* brush;
+  ID2D1SolidColorBrush *brush;
   target->CreateSolidColorBrush(
-    dwpa.eraser ? D2D1::ColorF(255, 255, 255) : D2D1::ColorF(0, 0, 0), &brush);
-  target->DrawLine(point1, point2, brush, pensize, NULL);
+    dwpa.eraser ? ColorF(255, 255, 255) : ColorF(0, 0, 0), &brush);
+  ID2D1StrokeStyle *style;
+  D2D1_STROKE_STYLE_PROPERTIES props = StrokeStyleProperties(
+    D2D1_CAP_STYLE_ROUND, D2D1_CAP_STYLE_ROUND, D2D1_CAP_STYLE_FLAT,
+    D2D1_LINE_JOIN_MITER, 1.0f, D2D1_DASH_STYLE_SOLID, 0.0f);
+  d2o.factory->CreateStrokeStyle(props, NULL, 0, &style);
+  target->DrawLine(point1, point2, brush, pensize, style);
   target->EndDraw();
+  ReleaseDC(hwnd, hdc);
   return 0;
 }
 
 LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   static Direct2D d2main;
   static DrawParams dwpa;
-  static DCBuffer dcb1;
+  static DCBuffer dcb1, dcb2, dcbg, *dcbA, *dcbB;
+  static Bitmap *bmbg; // eraser texture
   static BOOL nodraw = FALSE; // no draw dot on activated window by click
-  static HMENU menu;
+  static BOOL exitmenu = FALSE; // no draw dot on close menu by click outside
   static HMENU popup;
   #ifdef dev
   static BOOL msgLogOn = 1;
@@ -301,31 +329,36 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     wsprintf(txs, TEXT("%s%3d|%4X %s\n"), txs, HIWORD(mss[i])&0xFF, LOWORD(mss[i]), MsgStr::get(LOWORD(mss[i])));
   }
   if (msgLogOn) tou(txs, chwnd2, 0, mslen);
-  touf2("[lp:%8x, wp:%8x] msg: 0x%4X", lp, wp, msg);
-  touf3("nodraw: %d", nodraw);
+  touf2("[lp:%8x, wp:%8x] msg: 0x%4X, nodraw: %d", lp, wp, msg, nodraw);
   #endif
   switch (msg) {
   case WM_CREATE: {
     #ifdef dev
-    SetWindowLongPtr(hwnd, GWL_STYLE, WS_OVERLAPPEDWINDOW);
-    SetWindowPos(hwnd, HWND_TOP, 80, 80, C_SCWIDTH/1.5, C_SCHEIGHT/1.5, 0);
     chwnd = createDebugWindow(hwnd, TEXT("fdw_dbg"));
     //chwnd2 = createDebugWindow(hwnd, TEXT("fdw_dbg2"));
     //SetWindowPos(chwnd2, HWND_TOP, C_SCWIDTH-300, 0, 300, C_SCHEIGHT, 0);
+    SetWindowLongPtr(hwnd, GWL_STYLE, WS_OVERLAPPEDWINDOW);
+    SetWindowPos(hwnd, HWND_TOP, 0, 80, C_SCWIDTH/1.5, C_SCHEIGHT/1.5, 0);
+    //PostMessage(hwnd, WM_SYSCOMMAND, SC_MAXIMIZE, 0);
+    dwpa.penmax = 0x9; dwpa.presmax = 0; dwpa.updatePenPres();
     #endif
     // x, y
     dwpa.init();
     // ready bitmap buffer
-    dcb1.init(hwnd, C_SCWIDTH, C_SCHEIGHT, C_BGCOLOR);
     d2main.init(hwnd);
-    d2main.createCanvas();
     d2main.screen->BeginDraw();
-    d2main.screen->Clear(D2D1::ColorF(D2D1::ColorF::White));
+    d2main.screen->Clear(ColorF(ColorF::White));
     d2main.screen->EndDraw();
+    dcb1.init(hwnd, C_SCWIDTH, C_SCHEIGHT, C_BGCOLOR);
+    dcb2.init(hwnd, dcb1.width, dcb1.height, Color(dcb1.bgcolor));
+    dcbg.init(hwnd, C_SCWIDTH, C_SCHEIGHT, C_BGCOLOR);
+    dcbA = &dcb1;
+    dcbB = &dcb2;
+    bmbg = new Bitmap(dcbg.width, dcbg.height);
     // cursor
-    cursor.setCursor(hwnd, dwpa);
+    PenUI.setCursor(hwnd, dwpa);
     // menu
-    menu = LoadMenu(GetModuleHandle(NULL), MAKEINTRESOURCE(C_CTXMENU));
+    HMENU menu = LoadMenu(GetModuleHandle(NULL), MAKEINTRESOURCE(C_CTXMENU));
     popup = GetSubMenu(menu, 0);
     // post WM_POINTERXXX on mouse move
     EnableMouseInPointer(TRUE);
@@ -335,10 +368,28 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     return 1;
   }
   case WM_PAINT: {
+    // screen = bg = (eraser = bg + layerB) + layerA
+    dcbg.cls();
+    // bg += layerB
+    BLENDFUNCTION bfB = {AC_SRC_OVER, 0, 0x15, AC_SRC_ALPHA};
+    GdiAlphaBlend(
+      dcbg.dc, 0, 0, dcbg.width, dcbg.height,
+      dcbB->dc, 0, 0, dcbB->width, dcbB->height, bfB);
+    StretchBlt(dcbg.dc, dcbg.width, 0, -dcbg.width, dcbg.height,
+      dcbg.dc, 0, 0, dcbg.width, dcbg.height, SRCCOPY);
+    // eraser = bg
+    dcbg.copyToBitmap(bmbg);
+    // bg += layerA
+    GdiTransparentBlt(dcbg.dc, 0, 0, dcbg.width, dcbg.height, dcbA->dc,
+      0, 0, dcbA->width, dcbA->height, Color(dcbA->bgcolor).ToCOLORREF());
+    // screen = bg
     PAINTSTRUCT ps;
     HDC odc = BeginPaint(hwnd, &ps);
-    BitBlt(odc, 0, 0, C_SCWIDTH, C_SCHEIGHT, dcb1.dc, 0, 0, SRCCOPY);
+    BitBlt(odc, 0, 0, C_SCWIDTH, C_SCHEIGHT, dcbg.dc, 0, 0, SRCCOPY);
     EndPaint(hwnd, &ps);
+    d2main.screen->BeginDraw();
+    d2main.screen->Clear(ColorF(ColorF::White));
+    d2main.screen->EndDraw();
     return 0;
   }
   case WM_POINTERDOWN: {
@@ -375,8 +426,12 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       break;
     }
     }
+    if (exitmenu) {
+      nodraw = TRUE;
+      exitmenu = FALSE;
+    }
     if (nodraw) return 0; // no need to movePoint()
-    drawRender(hwnd, d2main, dwp2, C_DR_DOT);
+    drawRender2D(hwnd, d2main, dwp2, C_DR_DOT);
     return 0;
   }
   case WM_POINTERUPDATE: {
@@ -406,37 +461,58 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     #ifdef dev
     wout
     #endif
+    if (exitmenu) {
+      exitmenu = FALSE;
+      PenUI.setCursor(hwnd, dwpa);
+    }
     if (nodraw) return 0;
     if (dwpa.pressure) {
-      drawRender(hwnd, d2main, dwpa);
+      drawRender2D(hwnd, d2main, dwpa, C_DR_LINE);
     }
     return 0;
   }
   case WM_POINTERUP: {
     dwpa.pressure = 0;
     nodraw = FALSE;
+    PenUI.setCursor(hwnd, dwpa);
     return 0;
   }
-  case WM_NCPOINTERUP: {
+  case WM_NCPOINTERUP: { // WM_NCPOINTERUP is not be sent on click titlebar
     nodraw = FALSE;
+    PenUI.setCursor(hwnd, dwpa, C_CS_PEN, FALSE);
     return 0;
   }
   case WM_CONTEXTMENU: { // WM_CONTEXTMENU's lp is [screen x,y]
-    POINT point = {GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
-    ScreenToClient(hwnd, &point);
-    RECT rect;
-    GetClientRect(hwnd, &rect);
-    if (!PtInRect(&rect, point)) {
-      goto end;
+    const int x = GET_X_LPARAM(lp), y = GET_Y_LPARAM(lp);
+    const BOOL rightclick = !(x == -1 && y == -1);
+    // choice ctxmenu or sysmenu
+    if (rightclick) {
+      POINT point = {x, y};
+      ScreenToClient(hwnd, &point);
+      RECT rect;
+      GetClientRect(hwnd, &rect);
+      if (!PtInRect(&rect, point)) { // if R-click titlebar
+        goto end;
+      }
     }
+    // ctxmenu position
+    POINT point = {x, y};
+    if (!rightclick) { // Shift + F10
+      point = {dwpa.x, dwpa.y};
+      ClientToScreen(hwnd, &point);
+    }
+    // ctxmenu popup
     CheckMenuItem(popup, C_CMD_ERASER,
       dwpa.eraser ? MFS_CHECKED : MFS_UNCHECKED);
-    TrackPopupMenuEx(popup, 0, GET_X_LPARAM(lp), GET_Y_LPARAM(lp), hwnd, NULL);
+    TrackPopupMenuEx(popup, 0, point.x, point.y, hwnd, NULL);
     return 0;
   }
   case WM_COMMAND: {
     switch (LOWORD(wp)) {
     case C_CMD_REFRESH: {
+      nodraw = FALSE;
+      PenUI.setCursor(hwnd, dwpa);
+      InvalidateRect(hwnd, NULL, FALSE);
       SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, C_SCWIDTH, C_SCHEIGHT, 0);
       return 0;
     }
@@ -444,10 +520,21 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       PostMessage(hwnd, WM_CLOSE, 0, 0);
       return 0;
     }
+    case C_CMD_FLIP: {
+      DCBuffer *tmp = dcbA;
+      dcbA = dcbB;
+      dcbB = tmp;
+      InvalidateRect(hwnd, NULL, FALSE);
+      UpdateWindow(hwnd);
+      return 0;
+    }
     case C_CMD_CLEAR: {
       if (MessageBox(hwnd, TEXT("clear?"),
-      C_APPNAME_STR, MB_OKCANCEL | MB_ICONQUESTION) == IDOK) {
-        dcb1.cls();
+      C_APPNAME_STR, MB_OKCANCEL | MB_ICONQUESTION | MB_DEFBUTTON2) == IDOK) {
+        d2main.screen->BeginDraw();
+        d2main.screen->Clear(ColorF(C_BGCOLOR.GetValue()));
+        d2main.screen->EndDraw();
+        dcbA->cls();
         InvalidateRect(hwnd, NULL, FALSE);
         UpdateWindow(hwnd);
       }
@@ -461,6 +548,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       TCHAR vertxt[100];
       wsprintf(vertxt, TEXT("%s v%d.%d.%d.%d"), C_APPNAME_STR, C_APPVER);
       MSGBOXPARAMS mbpa;
+      SecureZeroMemory(&mbpa, sizeof(MSGBOXPARAMS));
       mbpa.cbSize = sizeof(MSGBOXPARAMS);
       mbpa.hwndOwner = hwnd;
       mbpa.hInstance = GetModuleHandle(NULL);
@@ -468,10 +556,27 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       mbpa.lpszCaption = TEXT("version");
       mbpa.dwStyle = MB_USERICON;
       mbpa.lpszIcon = MAKEINTRESOURCE(C_APPICON);
-      mbpa.dwContextHelpId = 0;
-      mbpa.lpfnMsgBoxCallback = NULL;
-      mbpa.dwLanguageId = LANG_JAPANESE;
       MessageBoxIndirect(&mbpa);
+      return 0;
+    }
+    case C_CMD_SAVEAS: {
+      const SIZE_T pathmax = 0x1000;
+      WCHAR pathname[pathmax]; // = L"default.name" // memset
+      lstrcpyW(pathname, L"fulldraw.png"); // non-memset
+      OPENFILENAMEW ofn;
+      SecureZeroMemory(&ofn, sizeof(OPENFILENAME));
+      ofn.lStructSize = sizeof(OPENFILENAME);
+      ofn.hwndOwner = hwnd;
+      ofn.lpstrFilter = L"image/png (*.png)\0*.png\0" L"*.*\0*.*\0\0";
+      ofn.lpstrFile = pathname;
+      ofn.nMaxFile = pathmax;
+      ofn.lpstrDefExt = L"png";
+      ofn.Flags = OFN_OVERWRITEPROMPT;
+      if (GetSaveFileNameW(&ofn)) {
+        InvalidateRect(hwnd, NULL, FALSE);
+        UpdateWindow(hwnd);
+        dcbg.save(pathname);
+      }
       return 0;
     }
     case C_CMD_ERASER: {
@@ -481,46 +586,49 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     case C_CMD_PEN_DE: {
       dwpa.penmax -= dwpa.PEN_INDE;
       dwpa.updatePenPres();
-      cursor.setCursor(hwnd, dwpa);
+      PenUI.setCursor(hwnd, dwpa);
       return 0;
     }
     case C_CMD_PEN_IN: {
       dwpa.penmax += dwpa.PEN_INDE;
       dwpa.updatePenPres();
-      cursor.setCursor(hwnd, dwpa);
+      PenUI.setCursor(hwnd, dwpa);
       return 0;
     }
     case C_CMD_PRS_DE: {
       dwpa.presmax -= dwpa.PRS_INDE;
       dwpa.updatePenPres();
-      cursor.setCursor(hwnd, dwpa);
+      PenUI.setCursor(hwnd, dwpa);
       return 0;
     }
     case C_CMD_PRS_IN: {
       dwpa.presmax += dwpa.PRS_INDE;
       dwpa.updatePenPres();
-      cursor.setCursor(hwnd, dwpa);
+      PenUI.setCursor(hwnd, dwpa);
       return 0;
     }
     }
     return 0;
   }
   case WM_KEYDOWN: {
-    int ctrl = GetAsyncKeyState(VK_CONTROL);
-    switch (wp) {
+    DWORD alt = ('!' * 0x1000000) * !!(GetKeyState(VK_MENU) & 0x8000);
+    DWORD shift = ('+' * 0x10000) * !!(GetKeyState(VK_SHIFT) & 0x8000);
+    DWORD ctrl = ('^' * 0x100) * !!(GetKeyState(VK_CONTROL) & 0x8000);
+    // '+^K': Shift+Ctrl+K, '^K': Ctrl+K, '+\0K': Shift+K
+    switch (alt | shift | ctrl | wp) {
     case VK_ESCAPE: PostMessage(hwnd, WM_COMMAND, C_CMD_EXIT, 0); return 0;
     case VK_DELETE: PostMessage(hwnd, WM_COMMAND, C_CMD_CLEAR, 0); return 0;
     case VK_F5: PostMessage(hwnd, WM_COMMAND, C_CMD_REFRESH, 0); return 0;
-    case 'M': {
-      if (ctrl) {
-        PostMessage(hwnd, WM_COMMAND, C_CMD_MINIMIZE, 0);
-      } else {
-        break;
-      }
+    case '^M': {
+      PostMessage(hwnd, WM_COMMAND, C_CMD_MINIMIZE, 0);
       return 0;
     }
     case 'E': {
       SendMessage(hwnd, WM_COMMAND, C_CMD_ERASER, 0);
+      return 0;
+    }
+    case 'H': {
+      SendMessage(hwnd, WM_COMMAND, C_CMD_FLIP, 0);
       return 0;
     }
     case VK_DOWN: {
@@ -539,7 +647,17 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       SendMessage(hwnd, WM_COMMAND, C_CMD_PRS_IN, 0);
       return 0;
     }
+    case '+^S': {
+      SendMessage(hwnd, WM_COMMAND, C_CMD_SAVEAS, 0);
+      return 0;
+    }
     #ifdef dev
+    case 'B': {
+      HDC odc = GetDC(hwnd);
+      BitBlt(odc, 0, 0, C_SCWIDTH, C_SCHEIGHT, odc, 0, 0, NOTSRCCOPY);
+      ReleaseDC(hwnd, odc);
+      return 0;
+    }
     case 'K': msgLogOn ^= 1; return 0;
     default: {
       touf("key: %d(%c)", wp, wp);
@@ -551,6 +669,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   case WM_ACTIVATE: {
     if (LOWORD(wp) == WA_INACTIVE) {
       dwpa.pressure = 0; // on Windows start menu
+      PenUI.setCursor(hwnd, dwpa, C_CS_ARROW, FALSE);
       SetWindowLongPtr(hwnd, GWL_EXSTYLE, WS_EX_LEFT);
       SetWindowPos(hwnd, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
     } else {
@@ -560,6 +679,9 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       SetWindowLongPtr(hwnd, GWL_EXSTYLE, WS_EX_LEFT);
       SetWindowPos(hwnd, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
       #endif
+      if (LOWORD(wp) == WA_ACTIVE) {
+        if (!nodraw) PenUI.setCursor(hwnd, dwpa, C_CS_PEN, FALSE);
+      }
     }
     #ifdef dev
     touf("[%d] WM_ACTIVATE: wp %d", GetTickCount(), LOWORD(wp));
@@ -574,14 +696,24 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     nodraw = TRUE;
     return PA_ACTIVATE;
   }
+  case WM_EXITMENULOOP: {
+    exitmenu = TRUE;
+    PenUI.setCursor(hwnd, dwpa, C_CS_ARROW);
+    return 0;
+  }
+  case WM_SIZE: {
+    if (d2main.screen != NULL) {
+      d2main.resizeScreen(hwnd);
+    }
+    return 0;
+  }
   case WM_CLOSE: {
     #ifdef dev
     if (TRUE) {
     #else
     if (MessageBox(hwnd, TEXT("exit?"),
-    C_APPNAME_STR, MB_OKCANCEL | MB_ICONWARNING) == IDOK) {
+    C_APPNAME_STR, MB_OKCANCEL | MB_ICONWARNING | MB_DEFBUTTON2) == IDOK) {
     #endif
-      dcb1.end();
       DestroyWindow(hwnd);
     }
     return 0;
@@ -600,23 +732,24 @@ int WINAPI WinMain(HINSTANCE hi, HINSTANCE hp, LPSTR cl, int cs) {
   ULONG_PTR token;
   GdiplusStartupInput input;
   GdiplusStartup(&token, &input, NULL);
+  
+  {
+    DrawParams s; s.init();
+  }
 
   // Main Window: Settings
   WNDCLASSEX wc;
+  SecureZeroMemory(&wc, sizeof(WNDCLASSEX));
   wc.cbSize = sizeof(WNDCLASSEX);
   wc.style = CS_HREDRAW | CS_VREDRAW;
   wc.lpfnWndProc = mainWndProc;
-  wc.cbClsExtra = 0;
-  wc.cbWndExtra = 0;
   wc.hInstance = hi;
   wc.hIcon = (HICON)LoadImage(hi, MAKEINTRESOURCE(C_APPICON), IMAGE_ICON, 0, 0, LR_DEFAULTCOLOR);
   wc.hCursor = (HCURSOR)LoadImage(NULL, IDC_ARROW, IMAGE_CURSOR, 0, 0, LR_SHARED);
   wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
-  wc.lpszMenuName = NULL;
   wc.lpszClassName = C_WINDOW_CLASS;
   wc.hIconSm = (HICON)LoadImage(hi, MAKEINTRESOURCE(C_APPICON), IMAGE_ICON, 0, 0, LR_DEFAULTCOLOR);
-  // WinMain() must return 0 before msg loop
-  if (RegisterClassEx(&wc) == 0) return 0;
+  RegisterClassEx(&wc);
 
   // Main Window: Create, Show
   HWND hwnd = CreateWindowEx(
@@ -629,7 +762,7 @@ int WINAPI WinMain(HINSTANCE hi, HINSTANCE hp, LPSTR cl, int cs) {
     NULL, NULL, hi, NULL
   );
   // WinMain() must return 0 before msg loop
-  if (hwnd == NULL) return 0;
+  if (hwnd == NULL) { popError(); return 0; }
 
   // main
   MSG msg;

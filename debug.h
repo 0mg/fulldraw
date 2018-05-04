@@ -12,8 +12,13 @@ void tou(LPTSTR str, HWND hwnd, int bottom, int height = 0) {
   //InvalidateRect(hwnd, NULL, TRUE);
 }
 
+LPTSTR es(LPTSTR s) {
+  FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM, NULL, GetLastError(), 0,
+    s, 1024, NULL);
+  return s;
+}
+
 LRESULT CALLBACK DBGProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
-  if (wp == WM_ERASEBKGND) return 1;
   return DefWindowProc(hwnd, msg, wp, lp);
 }
 
@@ -25,8 +30,8 @@ HWND createDebugWindow(HWND parent, LPTSTR cls) {
     MessageBox(NULL, TEXT("failed: child win class"), NULL, MB_OK);
     return NULL;
   }
-  return CreateWindow(cls,TEXT("[K]MsgLogON/OFF"), WS_VISIBLE,
-    0, 600, C_SCWIDTH, 120, parent, NULL, NULL, NULL);
+  return CreateWindow(cls,TEXT("[K]MsgLogON/OFF"), WS_VISIBLE|WS_SYSMENU,
+    0, C_SCHEIGHT-150, C_SCWIDTH, 120, parent, NULL, NULL, NULL);
 }
 
 namespace MsgStr {
