@@ -550,7 +550,10 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       return 0;
     }
     #ifdef dev
-    case VK_SPACE: {
+    case 'B': {
+      HDC odc = GetDC(hwnd);
+      BitBlt(odc, 0, 0, C_SCWIDTH, C_SCHEIGHT, odc, 0, 0, NOTSRCCOPY);
+      ReleaseDC(hwnd, odc);
       return 0;
     }
     case 'K': msgLogOn ^= 1; return 0;
