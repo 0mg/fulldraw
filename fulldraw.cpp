@@ -142,6 +142,7 @@ private:
       (w - penmax) / 2, (h - penmax) / 2, penmax, penmax
     );
     // presmax cross
+    if (!dwpa.PRS_MAX) return; // avoid div 0
     int length = w * presmax / dwpa.PRS_MAX;
     gpctx.DrawLine(&pen2, w / 2, (h - length) / 2, w / 2, (h + length) / 2);
     gpctx.DrawLine(&pen2, (w - length) / 2, h / 2, (w + length) / 2, h / 2);
