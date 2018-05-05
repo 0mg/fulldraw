@@ -177,6 +177,7 @@ int drawRender(HWND hwnd, DCBuffer *dcb, Bitmap *bmbg, DrawParams &dwpa, C_DR_TY
   int penmax = dwpa.penmax;
   int presmax = dwpa.presmax;
   int oldx = dwpa.oldx, oldy = dwpa.oldy, x = dwpa.x, y = dwpa.y;
+  if (!presmax) presmax = 1; // avoid div 0
   if (pressure > presmax) pressure = presmax;
   REAL pensize = pressure * (REAL)penmax / presmax;
   Pen pen2(C_FGCOLOR, pensize); // Pen draws 1px line if pensize=0
