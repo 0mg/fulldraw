@@ -46,13 +46,13 @@ public:
     BitBlt(bmdc, 0, 0, width, height, dc, 0, 0, SRCCOPY);
     ctx.ReleaseHDC(bmdc);
   }
-  void save(LPWSTR pathname) {
+  Status save(LPWSTR pathname) {
     Bitmap bm(width, height);
     copyToBitmap(&bm);
     // PNG {557CF406-1A04-11D3-9A73-0000F81EF32E}
     CLSID clsid = {0x557CF406, 0x1A04, 0x11D3,
       {0x9A, 0x73, 0x00, 0x00, 0xF8, 0x1E, 0xF3, 0x2E}};
-    bm.Save(pathname, &clsid, NULL);
+    return bm.Save(pathname, &clsid, NULL);
   }
 };
 
@@ -428,7 +428,9 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       if (GetSaveFileNameW(&ofn)) {
         InvalidateRect(hwnd, NULL, FALSE);
         UpdateWindow(hwnd);
-        dcbg.save(pathname);
+        while (dcbg.save(pathname) != Ok) {
+          if (popError(hwnd, MB_RETRYCANCEL) != IDRETRY) break;
+        }
       }
       return 0;
     }
