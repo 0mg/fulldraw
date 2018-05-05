@@ -647,7 +647,7 @@ int WINAPI WinMain(HINSTANCE hi, HINSTANCE hp, LPSTR cl, int cs) {
   HWND hwnd = CreateWindowEx(
     WS_EX_TOPMOST,
     wc.lpszClassName, C_APPNAME_STR,
-    WS_VISIBLE | WS_SYSMENU | WS_POPUP,
+    WS_VISIBLE | WS_SYSMENU | WS_MINIMIZEBOX | WS_POPUP,
     0, 0,
     C_SCWIDTH,
     C_SCHEIGHT,
