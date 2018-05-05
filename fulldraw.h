@@ -2,7 +2,7 @@
 // common defs (used by *.cpp and *.rc)
 #define C_APPNAME TEXT("fulldraw")
 #define C_APPICON 0xA1C0
-#define C_APPVER 0,6,4,8374
+#define C_APPVER 0,6,5,2
 #define C_CTXMENU 0xC07E
 #define C_CMD_VERSION 0x5E75
 #define C_CMD_REFRESH 0xAB32

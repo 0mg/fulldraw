@@ -63,13 +63,13 @@ public:
     BitBlt(bmdc, 0, 0, width, height, dc, 0, 0, SRCCOPY);
     ctx.ReleaseHDC(bmdc);
   }
-  void save(LPWSTR pathname) {
+  Status save(LPWSTR pathname) {
     Bitmap bm(width, height);
     copyToBitmap(&bm);
     // PNG {557CF406-1A04-11D3-9A73-0000F81EF32E}
     CLSID clsid = {0x557CF406, 0x1A04, 0x11D3,
       {0x9A, 0x73, 0x00, 0x00, 0xF8, 0x1E, 0xF3, 0x2E}};
-    bm.Save(pathname, &clsid, NULL);
+    return bm.Save(pathname, &clsid, NULL);
   }
 };
 
@@ -194,6 +194,7 @@ int drawRender(HWND hwnd, DCBuffer *dcb, Bitmap *bmbg, DrawParams &dwpa, C_DR_TY
   int penmax = dwpa.penmax;
   int presmax = dwpa.presmax;
   int oldx = dwpa.oldx, oldy = dwpa.oldy, x = dwpa.x, y = dwpa.y;
+  if (!presmax) presmax = 1; // avoid div 0
   if (pressure > presmax) pressure = presmax;
   REAL pensize = pressure * (REAL)penmax / presmax;
   Pen pen2(C_FGCOLOR, pensize); // Pen draws 1px line if pensize=0
@@ -442,8 +443,8 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     ScreenToClient(hwnd, &point);
     dwpa.movePoint(point.x, point.y); // do everytime
     #ifdef dev
-    POINTER_INPUT_TYPE dv; GetPointerType(GET_POINTERID_WPARAM(wp), &dv); POINTER_PEN_INFO pp; GetPointerPenInfo(GET_POINTERID_WPARAM(wp), &pp);
-    #define wout touf("[%d] gdi:%d, prs:%d, penmax:%d, presmax:%d, flags: %d, device: %d, (x:%d y:%d)", GetTickCount(), GetGuiResources(GetCurrentProcess(), GR_GDIOBJECTS), dwpa.pressure, dwpa.penmax, dwpa.presmax, pp.penFlags, dv, dwpa.x, dwpa.y);
+    POINTER_PEN_INFO pp; GetPointerPenInfo(GET_POINTERID_WPARAM(wp), &pp);
+    #define wout touf("[%d] gdi:%d, prs:%d, penmax:%d, presmax:%d, flags: %d, device: %d, (x:%d y:%d)", GetTickCount(), GetGuiResources(GetCurrentProcess(), GR_GDIOBJECTS), dwpa.pressure, dwpa.penmax, dwpa.presmax, pp.penFlags, device, dwpa.x, dwpa.y);
     wout
     #endif
     switch (device) {
@@ -576,7 +577,9 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       if (GetSaveFileNameW(&ofn)) {
         InvalidateRect(hwnd, NULL, FALSE);
         UpdateWindow(hwnd);
-        dcbg.save(pathname);
+        while (dcbg.save(pathname) != Ok) {
+          if (popError(hwnd, MB_RETRYCANCEL) != IDRETRY) break;
+        }
       }
       return 0;
     }
@@ -752,14 +755,14 @@ int WINAPI WinMain(HINSTANCE hi, HINSTANCE hp, LPSTR cl, int cs) {
   HWND hwnd = CreateWindowEx(
     WS_EX_TOPMOST,
     wc.lpszClassName, C_APPNAME_STR,
-    WS_VISIBLE | WS_SYSMENU | WS_POPUP,
+    WS_VISIBLE | WS_SYSMENU | WS_MINIMIZEBOX | WS_POPUP,
     0, 0,
     C_SCWIDTH,
     C_SCHEIGHT,
     NULL, NULL, hi, NULL
   );
   // WinMain() must return 0 before msg loop
-  if (hwnd == NULL) { popError(); return 0; }
+  if (hwnd == NULL) { popError(NULL); return 0; }
 
   // main
   MSG msg;
