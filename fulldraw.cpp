@@ -278,13 +278,13 @@ public:
 // C_CMD_DRAW v3.0 (Direct2D)
 int drawRender2D(HWND hwnd, Direct2D &d2o, DrawParams &dwpa, BOOL dot = 0) {
   // draw line
-  int pensize;
   int pressure = dwpa.pressure;
   int penmax = dwpa.penmax;
   int presmax = dwpa.presmax;
   int oldx = dwpa.oldx, oldy = dwpa.oldy, x = dwpa.x, y = dwpa.y;
   if (pressure > presmax) pressure = presmax;
-  pensize = pressure * penmax / presmax;
+  REAL pensize = pressure * penmax / presmax;
+  if (!pensize) pensize = 1.0f;
   ID2D1DCRenderTarget *darget = d2o.dcreen;
   ID2D1HwndRenderTarget *target = d2o.screen;
   HDC hdc = GetDC(hwnd);
@@ -329,7 +329,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   for (int i = 0; i < mslen; i++) {
     wsprintf(txs, TEXT("%s%3d|%4X %s\n"), txs, HIWORD(mss[i])&0xFF, LOWORD(mss[i]), MsgStr::get(LOWORD(mss[i])));
   }
-  if (msgLogOn) tou(txs, chwnd2, 0, mslen);
+  if (msgLogOn) tou(txs, chwnd2, 0, mslen), OutputDebugString(MsgStr::get(LOWORD(msg)));
   touf2("[lp:%8x, wp:%8x] msg: 0x%4X, nodraw: %d", lp, wp, msg, nodraw);
   #endif
   switch (msg) {
@@ -733,10 +733,6 @@ int WINAPI WinMain(HINSTANCE hi, HINSTANCE hp, LPSTR cl, int cs) {
   ULONG_PTR token;
   GdiplusStartupInput input;
   GdiplusStartup(&token, &input, NULL);
-  
-  {
-    DrawParams s; s.init();
-  }
 
   // Main Window: Settings
   WNDCLASSEX wc;
