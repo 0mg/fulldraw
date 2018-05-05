@@ -6,7 +6,7 @@ int popError(HWND hwnd, UINT mbstyle = MB_OK) {
   DWORD code = GetLastError();
   FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM, NULL, code, 0, str, len, NULL);
   LPTSTR title;
-  if (code != 0) {
+  if (code != NO_ERROR) {
     title = NULL;
     mbstyle |= MB_ICONERROR;
   } else {
