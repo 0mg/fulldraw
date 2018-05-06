@@ -283,6 +283,7 @@ int drawRender2D(HWND hwnd, Direct2D &d2o, DrawParams &dwpa, BOOL dot = 0) {
   int penmax = dwpa.penmax;
   int presmax = dwpa.presmax;
   int oldx = dwpa.oldx, oldy = dwpa.oldy, x = dwpa.x, y = dwpa.y;
+  if (!presmax) presmax = 1; // avoid div 0
   if (pressure > presmax) pressure = presmax;
   REAL pensize = pressure * penmax / presmax;
   if (!pensize) pensize = 1.0f;
@@ -335,15 +336,6 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   #endif
   switch (msg) {
   case WM_CREATE: {
-    #ifdef dev
-    chwnd = createDebugWindow(hwnd, TEXT("fdw_dbg"));
-    //chwnd2 = createDebugWindow(hwnd, TEXT("fdw_dbg2"));
-    //SetWindowPos(chwnd2, HWND_TOP, C_SCWIDTH-300, 0, 300, C_SCHEIGHT, 0);
-    SetWindowLongPtr(hwnd, GWL_STYLE, WS_OVERLAPPEDWINDOW);
-    SetWindowPos(hwnd, HWND_TOP, 0, 80, C_SCWIDTH/1.5, C_SCHEIGHT/1.5, 0);
-    //PostMessage(hwnd, WM_SYSCOMMAND, SC_MAXIMIZE, 0);
-    dwpa.penmax = 0x9; dwpa.presmax = 0; dwpa.updatePenPres();
-    #endif
     // x, y
     dwpa.init();
     // ready bitmap buffer
@@ -364,6 +356,15 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     popup = GetSubMenu(menu, 0);
     // post WM_POINTERXXX on mouse move
     EnableMouseInPointer(TRUE);
+    #ifdef dev
+    chwnd = createDebugWindow(hwnd, TEXT("fdw_dbg"));
+    //chwnd2 = createDebugWindow(hwnd, TEXT("fdw_dbg2"));
+    //SetWindowPos(chwnd2, HWND_TOP, C_SCWIDTH-300, 0, 300, C_SCHEIGHT, 0);
+    SetWindowLongPtr(hwnd, GWL_STYLE, WS_OVERLAPPEDWINDOW);
+    SetWindowPos(hwnd, HWND_TOP, 0, 80, C_SCWIDTH/1.5, C_SCHEIGHT/1.5, 0);
+    PostMessage(hwnd, WM_SYSCOMMAND, SC_MAXIMIZE, 0);
+    dwpa.penmax = 0x9; dwpa.presmax = 0; dwpa.updatePenPres();
+    #endif
     return 0;
   }
   case WM_ERASEBKGND: {
@@ -707,7 +708,9 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   }
   case WM_SIZE: {
     if (d2main.screen != NULL) {
-      d2main.resizeScreen(hwnd);
+      RECT rc;
+      GetClientRect(hwnd, &rc);
+      d2main.screen->Resize(SizeU(rc.right - rc.left, rc.bottom - rc.top));
     }
     return 0;
   }
