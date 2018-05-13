@@ -246,6 +246,8 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     return 0;
   }
   case WM_ERASEBKGND: {
+    // window.onload: set window to top most if not.
+    SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, C_SCWIDTH, C_SCHEIGHT, 0);
     return 1;
   }
   case WM_PAINT: {
