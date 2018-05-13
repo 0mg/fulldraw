@@ -277,7 +277,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     SetWindowLongPtr(hwnd, GWL_STYLE, WS_OVERLAPPEDWINDOW);
     SetWindowPos(hwnd, HWND_TOP, 0, 80, C_SCWIDTH/1.5, C_SCHEIGHT/1.5, 0);
     PostMessage(hwnd, WM_SYSCOMMAND, SC_MAXIMIZE, 0);
-    dwpa.penmax = 0xFF; dwpa.presmax = 0; dwpa.updatePenPres();
+    dwpa.penmax=dwpa.PEN_MAX; dwpa.presmax=dwpa.PRS_MAX; dwpa.updatePenPres();
     #endif
     // post WM_POINTERXXX on mouse move
     EnableMouseInPointer(TRUE);
@@ -575,9 +575,15 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     }
     #ifdef dev
     case 'B': {
-      HDC odc = GetDC(hwnd);
-      BitBlt(odc, 0, 0, C_SCWIDTH, C_SCHEIGHT, odc, 0, 0, NOTSRCCOPY);
-      ReleaseDC(hwnd, odc);
+      dcbA->cls();
+      InvalidateRect(hwnd, NULL, FALSE);
+      int n = GetTickCount() % 1000;
+      dwpa.movePoint(30, 50);
+      dwpa.movePoint(100, 30);
+      dwpa.updatePressure(300);
+      dwpa.updatePressure(dwpa.PRS_MAX);
+      drawRender(hwnd, dcbA, bmbg, dwpa, C_DR_LINE);
+      dwpa.pressure = 0;
       return 0;
     }
     case 'K': msgLogOn ^= 1; return 0;
