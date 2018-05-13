@@ -87,14 +87,14 @@ private:
   }
 public:
   int x, y, oldx, oldy;
-  int pressure;
+  int pressure, oldpressure;
   static BOOL eraser;
   static int penmax, presmax;
   static int PEN_MIN, PEN_MAX, PEN_INDE;
   static int PRS_MIN, PRS_MAX, PRS_INDE;
   void init() {
     x = y = oldx = oldy = 0;
-    pressure = 0;
+    pressure = oldpressure = 0;
     if (!staticsReadied) {
       initStatics();
       staticsReadied = TRUE;
@@ -115,6 +115,10 @@ public:
     oldy = y;
     x = newx;
     y = newy;
+  }
+  void updatePressure(int newpressure) {
+    oldpressure = pressure;
+    pressure = newpressure;
   }
 };
 BOOL DrawParams::eraser;
@@ -187,16 +191,21 @@ public:
 enum C_DR_TYPE {C_DR_LINE, C_DR_DOT};
 int drawRender(HWND hwnd, DCBuffer *dcb, Bitmap *bmbg, DrawParams &dwpa, C_DR_TYPE type) {
   // draw line
-  int pressure = dwpa.pressure;
+  int pressure = dwpa.pressure, oldpressure = dwpa.oldpressure;
   int penmax = dwpa.penmax;
   int presmax = dwpa.presmax;
-  int oldx = dwpa.oldx, oldy = dwpa.oldy, x = dwpa.x, y = dwpa.y;
   if (!presmax) presmax = 1; // avoid div 0
   if (pressure > presmax) pressure = presmax;
+  if (oldpressure > presmax) oldpressure = presmax;
   REAL pensize = pressure * (REAL)penmax / presmax;
+  REAL oldpensize = oldpressure * (REAL)penmax / presmax;
   Pen pen2(C_FGCOLOR, pensize); // Pen draws 1px line if pensize=0
-  pen2.SetStartCap(LineCapRound);
-  pen2.SetEndCap(LineCapRound);
+  TextureBrush brushBGImg(bmbg);
+  SolidBrush brushFG(C_FGCOLOR);
+  SolidBrush brushBG(dcb->bgcolor);
+  Brush *brush = &brushFG;
+  float x1 = dwpa.oldx, y1 = dwpa.oldy, x2 = dwpa.x, y2 = dwpa.y;
+  float r = oldpensize / 2, R = pensize / 2;
   for (int i = 0; i <= 1; i++) {
     Graphics screen(hwnd);
     Graphics buffer(dcb->dc);
@@ -204,16 +213,20 @@ int drawRender(HWND hwnd, DCBuffer *dcb, Bitmap *bmbg, DrawParams &dwpa, C_DR_TY
     gpctx->SetSmoothingMode(SmoothingModeAntiAlias);
     if (dwpa.eraser) {
       if (gpctx == &screen) {
-        TextureBrush brushE(bmbg);
-        pen2.SetBrush(&brushE);
+        brush = &brushBGImg;
       } else {
-        pen2.SetColor(dcb->bgcolor);
+        brush = &brushBG;
       }
     }
     if (type == C_DR_DOT) {
-      gpctx->DrawLine(&pen2, (REAL)x - 0.1, (REAL)y, (REAL)x, (REAL)y);
+      gpctx->FillEllipse(brush, x2 - R, y2 - R, pensize, pensize);
     } else {
-      gpctx->DrawLine(&pen2, oldx, oldy, x, y);
+      const SIZE_T len = 4;
+      float pts[2 * len]; // (x, y), (x, y), (x, y), (x, y)
+      tanOO(pts, r, R, x1, y1, x2, y2);
+      gpctx->FillEllipse(brush, x1 - r, y1 - r, oldpensize, oldpensize);
+      gpctx->FillPolygon(brush, (PointF *)pts, len, FillModeAlternate);
+      gpctx->FillEllipse(brush, x2 - R, y2 - R, pensize, pensize);
     }
   }
   return 0;
@@ -309,7 +322,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       GetPointerPenInfo(GET_POINTERID_WPARAM(wp), &penInfo);
       // draw dot
       dwp2.movePoint(point.x, point.y);
-      dwp2.pressure = penInfo.pressure;
+      dwp2.updatePressure(penInfo.pressure);
       dwp2.eraser = !!(penInfo.penFlags & PEN_FLAG_ERASER);
       break;
     }
@@ -319,7 +332,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         // WM_LBUTTONDOWN
         // trigger of draw line
         dwpa.movePoint(point.x, point.y);
-        dwpa.pressure = dwpa.PRS_INDE * 3;
+        dwpa.updatePressure(dwpa.PRS_INDE * 3);
         // draw dot
         dwp2 = dwpa;
       } else {
@@ -353,10 +366,17 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       // WM_PENMOVE
       POINTER_PEN_INFO penInfo;
       GetPointerPenInfo(GET_POINTERID_WPARAM(wp), &penInfo);
-      dwpa.pressure = penInfo.pressure;
+      dwpa.updatePressure(penInfo.pressure);
       dwpa.eraser = !!(penInfo.penFlags & PEN_FLAG_ERASER);
       if (!penInfo.pressure) { // need to set cursor on some good time
         goto end; // set cursor
+      }
+      break;
+    }
+    case PT_TOUCHPAD: // same to PT_MOUSE
+    case PT_MOUSE: {
+      if (dwpa.pressure) {
+        dwpa.updatePressure(dwpa.pressure);
       }
       break;
     }
