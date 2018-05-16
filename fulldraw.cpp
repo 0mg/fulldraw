@@ -5,6 +5,7 @@
 using namespace Gdiplus;
 
 #include "util.h"
+#include "kbd.h"
 #include "fulldraw.h"
 
 // defs that *.rc never call
@@ -270,6 +271,32 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     // menu
     HMENU menu = LoadMenu(GetModuleHandle(NULL), MAKEINTRESOURCE(C_CTXMENU));
     popup = GetSubMenu(menu, 0);
+    WORD lang = 0x1;
+    // keyboard shortcut
+    KBDAssign.assign(C_CMD_EXIT, VK_ESCAPE, 0);
+    KBDAssign.assign(C_CMD_CLEAR, VK_DELETE, 0);
+    KBDAssign.assign(C_CMD_REFRESH, VK_F5, 0);
+    KBDAssign.assign(C_CMD_MINIMIZE, 'M', C_KBD_CTRL);
+    KBDAssign.assign(C_CMD_ERASER, 'E', 0);
+    KBDAssign.assign(C_CMD_FLIP, 'H', 0);
+    KBDAssign.assign(C_CMD_PEN_DE, VK_DOWN, 0);
+    KBDAssign.assign(C_CMD_PEN_IN, VK_UP, 0);
+    KBDAssign.assign(C_CMD_PRS_DE, VK_LEFT, 0);
+    KBDAssign.assign(C_CMD_PRS_IN, VK_RIGHT, 0);
+    KBDAssign.assign(C_CMD_SAVEAS, 'S', C_KBD_CTRL | C_KBD_SHIFT);
+    setMenuText(popup, C_CMD_EXIT, lang);
+    setMenuText(popup, C_CMD_CLEAR, lang);
+    setMenuText(popup, C_CMD_REFRESH, lang);
+    setMenuText(popup, C_CMD_MINIMIZE, lang);
+    setMenuText(popup, C_CMD_ERASER, lang);
+    setMenuText(popup, C_CMD_FLIP, lang);
+    setMenuText(popup, C_CMD_PEN_DE, lang);
+    setMenuText(popup, C_CMD_PEN_IN, lang);
+    setMenuText(popup, C_CMD_PRS_DE, lang);
+    setMenuText(popup, C_CMD_PRS_IN, lang);
+    setMenuText(popup, C_CMD_SAVEAS, lang);
+    setMenuText(popup, C_CMD_VERSION, lang);
+    setMenuText(popup, C_ID_PEN, lang, 2);
     #ifdef dev
     chwnd = createDebugWindow(hwnd, TEXT("fdw_dbg"));
     //chwnd2 = createDebugWindow(hwnd, TEXT("fdw_dbg2"));
@@ -533,45 +560,13 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     return 0;
   }
   case WM_KEYDOWN: {
-    DWORD alt = ('!' * 0x1000000) * !!(GetKeyState(VK_MENU) & 0x8000);
-    DWORD shift = ('+' * 0x10000) * !!(GetKeyState(VK_SHIFT) & 0x8000);
-    DWORD ctrl = ('^' * 0x100) * !!(GetKeyState(VK_CONTROL) & 0x8000);
-    // '+^K': Shift+Ctrl+K, '^K': Ctrl+K, '+\0K': Shift+K
-    switch (alt | shift | ctrl | wp) {
-    case VK_ESCAPE: PostMessage(hwnd, WM_COMMAND, C_CMD_EXIT, 0); return 0;
-    case VK_DELETE: PostMessage(hwnd, WM_COMMAND, C_CMD_CLEAR, 0); return 0;
-    case VK_F5: PostMessage(hwnd, WM_COMMAND, C_CMD_REFRESH, 0); return 0;
-    case '^M': {
-      PostMessage(hwnd, WM_COMMAND, C_CMD_MINIMIZE, 0);
-      return 0;
-    }
-    case 'E': {
-      SendMessage(hwnd, WM_COMMAND, C_CMD_ERASER, 0);
-      return 0;
-    }
-    case 'H': {
-      SendMessage(hwnd, WM_COMMAND, C_CMD_FLIP, 0);
-      return 0;
-    }
-    case VK_DOWN: {
-      SendMessage(hwnd, WM_COMMAND, C_CMD_PEN_DE, 0);
-      return 0;
-    }
-    case VK_UP: {
-      SendMessage(hwnd, WM_COMMAND, C_CMD_PEN_IN, 0);
-      return 0;
-    }
-    case VK_LEFT: {
-      SendMessage(hwnd, WM_COMMAND, C_CMD_PRS_DE, 0);
-      return 0;
-    }
-    case VK_RIGHT: {
-      SendMessage(hwnd, WM_COMMAND, C_CMD_PRS_IN, 0);
-      return 0;
-    }
-    case '+^S': {
-      SendMessage(hwnd, WM_COMMAND, C_CMD_SAVEAS, 0);
-      return 0;
+    int alt = C_KBD_ALT * !!(GetKeyState(VK_MENU) & 0x8000);
+    int shift = C_KBD_SHIFT * !!(GetKeyState(VK_SHIFT) & 0x8000);
+    int ctrl = C_KBD_CTRL * !!(GetKeyState(VK_CONTROL) & 0x8000);
+    TCHAR key = wp & 0xFF;
+    WORD id = KBDAssign.getIdByKBDCmd(key, alt | shift | ctrl);
+    if (id) {
+      PostMessage(hwnd, WM_COMMAND, id, 0);
     }
     #ifdef dev
     case 'B': {

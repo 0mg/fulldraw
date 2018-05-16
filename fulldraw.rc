@@ -4,26 +4,42 @@
 
 C_APPICON ICON "fulldraw.ico"
 
+STRINGTABLE {
+  C_STR_JA_PEN "ペン(&P)"
+  C_STR_JA_ERASER "消しゴム(&E)"
+  C_STR_JA_PEN_IN "大きく(&U)"
+  C_STR_JA_PEN_DE "小さく(&D)"
+  C_STR_JA_PRS_IN "硬く(&R)"
+  C_STR_JA_PRS_DE "柔らかく(&L)"
+  C_STR_JA_FLIP "裏返す(&F)"
+  C_STR_JA_CLEAR "消去(&C)"
+  C_STR_JA_REFRESH "最新の情報に更新(&E)"
+  C_STR_JA_MINIMIZE "ウィンドウ最小化(&M)"
+  C_STR_JA_VERSION "バージョン情報(&V)"
+  C_STR_JA_SAVEAS "名前を付けて保存(&A)..."
+  C_STR_JA_EXIT "終了(&X)"
+}
+
 C_CTXMENU MENU {
   POPUP "all" {
-    MENUITEM "eraser\tE", C_CMD_ERASER
+    MENUITEM "eraser", C_CMD_ERASER
     POPUP "pen" {
-      MENUITEM "larger\t↑", C_CMD_PEN_IN
-      MENUITEM "smaller\t↓", C_CMD_PEN_DE
-      MENUITEM "harder\t→", C_CMD_PRS_IN
-      MENUITEM "softer\t←", C_CMD_PRS_DE
+      MENUITEM "larger", C_CMD_PEN_IN
+      MENUITEM "smaller", C_CMD_PEN_DE
+      MENUITEM "harder", C_CMD_PRS_IN
+      MENUITEM "softer", C_CMD_PRS_DE
     }
     MENUITEM SEPARATOR
-    MENUITEM "flip\tH", C_CMD_FLIP
-    MENUITEM "clear\tDel", C_CMD_CLEAR
+    MENUITEM "flip", C_CMD_FLIP
+    MENUITEM "clear", C_CMD_CLEAR
     MENUITEM SEPARATOR
-    MENUITEM "refresh\tF5", C_CMD_REFRESH
-    MENUITEM "minimize\tCtrl+M", C_CMD_MINIMIZE
+    MENUITEM "refresh", C_CMD_REFRESH
+    MENUITEM "minimize", C_CMD_MINIMIZE
     MENUITEM SEPARATOR
     MENUITEM "version...", C_CMD_VERSION
     MENUITEM SEPARATOR
-    MENUITEM "save as...\tCtrl+Shift+S", C_CMD_SAVEAS
-    MENUITEM "exit\tEsc", C_CMD_EXIT
+    MENUITEM "save as...", C_CMD_SAVEAS
+    MENUITEM "exit", C_CMD_EXIT
   }
 }
 
