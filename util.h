@@ -34,13 +34,13 @@ void tanOO(float *tanp, float r, float R, float x1, float y1, float x2, float y2
   float h = sqrtf(max(0.0f, 1.0f - c * c));
   float a[len];
   for (int i = 0; i < len;) {
-    int sign = i < 4 ? 1 : -1;
-    float nx = vx * c - sign * h * vy;
-    float ny = vy * c + sign * h * vx;
+    float nx = vx * c - h * vy;
+    float ny = vy * c + h * vx;
     a[i++] = x1 + r * nx;
     a[i++] = y1 + r * ny;
     a[i++] = x2 + R * nx;
     a[i++] = y2 + R * ny;
+    h *= -1;
   }
   tanp[0] = a[0];
   tanp[1] = a[1];
