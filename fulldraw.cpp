@@ -569,6 +569,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       PostMessage(hwnd, WM_COMMAND, id, 0);
     }
     #ifdef dev
+    switch (key) {
     case 'B': {
       dcbA->cls();
       InvalidateRect(hwnd, NULL, FALSE);
@@ -583,10 +584,15 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     }
     case 'K': msgLogOn ^= 1; return 0;
     default: {
-      touf("key: %d(%c)", wp, wp);
+      alt = !!(GetKeyState(VK_MENU) & 0x8000) ? C_KBD_ALT : 0;
+      shift = !!(GetKeyState(VK_SHIFT) & 0x8000) ? C_KBD_SHIFT : 0;
+      ctrl = !!(GetKeyState(VK_CONTROL) & 0x8000) ? C_KBD_CTRL : 0;
+      TCHAR st[0x80];
+      strifyKBDCmd(st, key, alt|shift|ctrl);
+      touf("str: %s; key: 0x%X(%c);", st, key, key);
+    }
     }
     #endif
-    }
     return 0;
   }
   case WM_ACTIVATE: {

@@ -52,6 +52,7 @@ void tanOO(float *tanp, float r, float R, float x1, float y1, float x2, float y2
   tanp[7] = a[5];
 }
 
+#ifdef dev
 class Array {
 public:
   LPVOID data;
@@ -125,3 +126,4 @@ private:
     }
   }
 };
+#endif
