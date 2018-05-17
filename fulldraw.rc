@@ -18,6 +18,13 @@ STRINGTABLE {
   C_STR_JA_VERSION "バージョン情報(&V)"
   C_STR_JA_SAVEAS "名前を付けて保存(&A)..."
   C_STR_JA_EXIT "終了(&X)"
+  //C_STR_JA_LANG "言語(&L)"
+  //C_STR_JA_LANG_DEFAULT "既定(&D)"
+  //C_STR_JA_LANG_JA "日本語(&J)"
+  C_STR_CLEAR_CONFIRM "clear? (CAN NOT undo)"
+  C_STR_EXIT_CONFIRM "exit? (data should be deleted)"
+  C_STR_JA_CLEAR_CONFIRM "本当に消去しますか?\n(元に戻せません)"
+  C_STR_JA_EXIT_CONFIRM "本当に終了しますか?\n(保存していないデータは失われます)"
 }
 
 C_CTXMENU MENU {
@@ -35,6 +42,10 @@ C_CTXMENU MENU {
     MENUITEM SEPARATOR
     MENUITEM "refresh", C_CMD_REFRESH
     MENUITEM "minimize", C_CMD_MINIMIZE
+    POPUP "language" {
+      MENUITEM "English", C_CMD_LANG_DEFAULT
+      MENUITEM "日本語(&J)", C_CMD_LANG_JA
+    }
     MENUITEM SEPARATOR
     MENUITEM "version...", C_CMD_VERSION
     MENUITEM SEPARATOR

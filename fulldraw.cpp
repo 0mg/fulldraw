@@ -233,6 +233,25 @@ int drawRender(HWND hwnd, DCBuffer *dcb, Bitmap *bmbg, DrawParams &dwpa, C_DR_TY
   return 0;
 }
 
+void modifyMenu(HMENU menu, WORD lang) {
+  setMenuText(menu, C_CMD_EXIT, lang);
+  setMenuText(menu, C_CMD_CLEAR, lang);
+  setMenuText(menu, C_CMD_REFRESH, lang);
+  setMenuText(menu, C_CMD_MINIMIZE, lang);
+  setMenuText(menu, C_CMD_ERASER, lang);
+  setMenuText(menu, C_CMD_FLIP, lang);
+  setMenuText(menu, C_CMD_PEN_DE, lang);
+  setMenuText(menu, C_CMD_PEN_IN, lang);
+  setMenuText(menu, C_CMD_PRS_DE, lang);
+  setMenuText(menu, C_CMD_PRS_IN, lang);
+  setMenuText(menu, C_CMD_SAVEAS, lang);
+  setMenuText(menu, C_CMD_VERSION, lang);
+  setMenuText(menu, C_STR_PEN, lang, 2);
+  setMenuText(menu, C_STR_LANG, lang, 9);
+  setMenuText(menu, C_CMD_LANG_DEFAULT, lang);
+  setMenuText(menu, C_CMD_LANG_JA, lang);
+}
+
 LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   static DrawParams dwpa;
   static DCBuffer dcb1, dcb2, dcbg, *dcbA, *dcbB;
@@ -240,6 +259,8 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   static BOOL nodraw = FALSE; // no draw dot on activated window by click
   static BOOL exitmenu = FALSE; // no draw dot on close menu by click outside
   static HMENU popup;
+  static WORD langtype = C_LANG_DEFAULT;
+  static TCHAR msgtxt[0x800];
   #ifdef dev
   static BOOL msgLogOn = 1;
   const SIZE_T mslen = 50; static LPARAM mss[mslen];
@@ -268,35 +289,26 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     bmbg = new Bitmap(dcbg.width, dcbg.height);
     // cursor
     PenUI.setCursor(hwnd, dwpa);
+    // keyboard shortcut
+    Hotkey.assign(C_CMD_EXIT, VK_ESCAPE, 0);
+    Hotkey.assign(C_CMD_CLEAR, VK_DELETE, 0);
+    Hotkey.assign(C_CMD_REFRESH, VK_F5, 0);
+    Hotkey.assign(C_CMD_MINIMIZE, 'M', C_KBD_CTRL);
+    Hotkey.assign(C_CMD_ERASER, 'E', 0);
+    Hotkey.assign(C_CMD_FLIP, 'H', 0);
+    Hotkey.assign(C_CMD_PEN_DE, VK_DOWN, 0);
+    Hotkey.assign(C_CMD_PEN_IN, VK_UP, 0);
+    Hotkey.assign(C_CMD_PRS_DE, VK_LEFT, 0);
+    Hotkey.assign(C_CMD_PRS_IN, VK_RIGHT, 0);
+    Hotkey.assign(C_CMD_SAVEAS, 'S', C_KBD_CTRL | C_KBD_SHIFT);
     // menu
     HMENU menu = LoadMenu(GetModuleHandle(NULL), MAKEINTRESOURCE(C_CTXMENU));
     popup = GetSubMenu(menu, 0);
-    WORD lang = 0x1;
-    // keyboard shortcut
-    KBDAssign.assign(C_CMD_EXIT, VK_ESCAPE, 0);
-    KBDAssign.assign(C_CMD_CLEAR, VK_DELETE, 0);
-    KBDAssign.assign(C_CMD_REFRESH, VK_F5, 0);
-    KBDAssign.assign(C_CMD_MINIMIZE, 'M', C_KBD_CTRL);
-    KBDAssign.assign(C_CMD_ERASER, 'E', 0);
-    KBDAssign.assign(C_CMD_FLIP, 'H', 0);
-    KBDAssign.assign(C_CMD_PEN_DE, VK_DOWN, 0);
-    KBDAssign.assign(C_CMD_PEN_IN, VK_UP, 0);
-    KBDAssign.assign(C_CMD_PRS_DE, VK_LEFT, 0);
-    KBDAssign.assign(C_CMD_PRS_IN, VK_RIGHT, 0);
-    KBDAssign.assign(C_CMD_SAVEAS, 'S', C_KBD_CTRL | C_KBD_SHIFT);
-    setMenuText(popup, C_CMD_EXIT, lang);
-    setMenuText(popup, C_CMD_CLEAR, lang);
-    setMenuText(popup, C_CMD_REFRESH, lang);
-    setMenuText(popup, C_CMD_MINIMIZE, lang);
-    setMenuText(popup, C_CMD_ERASER, lang);
-    setMenuText(popup, C_CMD_FLIP, lang);
-    setMenuText(popup, C_CMD_PEN_DE, lang);
-    setMenuText(popup, C_CMD_PEN_IN, lang);
-    setMenuText(popup, C_CMD_PRS_DE, lang);
-    setMenuText(popup, C_CMD_PRS_IN, lang);
-    setMenuText(popup, C_CMD_SAVEAS, lang);
-    setMenuText(popup, C_CMD_VERSION, lang);
-    setMenuText(popup, C_ID_PEN, lang, 2);
+    switch (LANGIDFROMLCID(GetUserDefaultLCID())) {
+    case 0x0411: langtype = C_LANG_JA; break;
+    default: langtype = C_LANG_DEFAULT; break;
+    }
+    modifyMenu(popup, langtype);
     #ifdef dev
     chwnd = createDebugWindow(hwnd, TEXT("fdw_dbg"));
     //chwnd2 = createDebugWindow(hwnd, TEXT("fdw_dbg2"));
@@ -452,6 +464,8 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       ClientToScreen(hwnd, &point);
     }
     // ctxmenu popup
+    CheckMenuRadioItem(popup, C_CMD_LANG_FIRST, C_CMD_LANG_JA,
+      (langtype >> 12) | C_CMD_LANG_FIRST, MF_BYCOMMAND);
     CheckMenuItem(popup, C_CMD_ERASER,
       dwpa.eraser ? MFS_CHECKED : MFS_UNCHECKED);
     TrackPopupMenuEx(popup, 0, point.x, point.y, hwnd, NULL);
@@ -479,7 +493,8 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       return 0;
     }
     case C_CMD_CLEAR: {
-      if (MessageBox(hwnd, TEXT("clear?"),
+      toLocaleString(msgtxt, C_STR_CLEAR_CONFIRM, langtype);
+      if (MessageBox(hwnd, msgtxt,
       C_APPNAME_STR, MB_OKCANCEL | MB_ICONQUESTION | MB_DEFBUTTON2) == IDOK) {
         dcbA->cls();
         InvalidateRect(hwnd, NULL, FALSE);
@@ -528,6 +543,20 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       }
       return 0;
     }
+    case C_CMD_LANG_DEFAULT: {
+      langtype = C_LANG_DEFAULT;
+      HMENU menu = LoadMenu(GetModuleHandle(NULL), MAKEINTRESOURCE(C_CTXMENU));
+      popup = GetSubMenu(menu, 0);
+      modifyMenu(popup, langtype);
+      return 0;
+    }
+    case C_CMD_LANG_JA: {
+      langtype = C_LANG_JA;
+      HMENU menu = LoadMenu(GetModuleHandle(NULL), MAKEINTRESOURCE(C_CTXMENU));
+      popup = GetSubMenu(menu, 0);
+      modifyMenu(popup, langtype);
+      return 0;
+    }
     case C_CMD_ERASER: {
       dwpa.eraser = !dwpa.eraser;
       return 0;
@@ -564,7 +593,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     int shift = C_KBD_SHIFT * !!(GetKeyState(VK_SHIFT) & 0x8000);
     int ctrl = C_KBD_CTRL * !!(GetKeyState(VK_CONTROL) & 0x8000);
     TCHAR key = wp & 0xFF;
-    WORD id = KBDAssign.getIdByKBDCmd(key, alt | shift | ctrl);
+    WORD id = Hotkey.getIdByKBDCmd(key, alt | shift | ctrl);
     if (id) {
       PostMessage(hwnd, WM_COMMAND, id, 0);
     }
@@ -634,7 +663,8 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     #ifdef dev
     if (TRUE) {
     #else
-    if (MessageBox(hwnd, TEXT("exit?"),
+    toLocaleString(msgtxt, C_STR_EXIT_CONFIRM, langtype);
+    if (MessageBox(hwnd, msgtxt,
     C_APPNAME_STR, MB_OKCANCEL | MB_ICONWARNING | MB_DEFBUTTON2) == IDOK) {
     #endif
       DestroyWindow(hwnd);

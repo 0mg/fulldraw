@@ -3,16 +3,16 @@
 
 typedef struct tagKBDMap {
   WORD id;
-  WORD key;
+  char key;
   BYTE mod;
 } KBDMap;
 
-static class tagKBDAssign {
+static class tagHotkey {
 private:
   KBDMap kmap[99];
   int index = 0;
 public:
-  void assign(WORD id, TCHAR key, BYTE mod) {
+  void assign(WORD id, char key, BYTE mod) {
     if (index >= sizeof(kmap) / sizeof(KBDMap)) {
       SetLastError(ERROR_VOLMGR_MAXIMUM_REGISTERED_USERS);
       popError(NULL);
@@ -23,7 +23,7 @@ public:
     tgt->key = key;
     tgt->mod = mod;
   }
-  WORD getIdByKBDCmd(TCHAR key, BYTE mod) {
+  WORD getIdByKBDCmd(char key, BYTE mod) {
     for (int i = 0; i < index; i++) {
       KBDMap *m = &kmap[i];
       if (m->key == key && m->mod == mod) {
@@ -41,14 +41,14 @@ public:
       }
     }
   }
-} KBDAssign;
+} Hotkey;
 
 enum C_KBD_MOD {
   C_KBD_CTRL = 1,
   C_KBD_SHIFT = 2,
   C_KBD_ALT = 4
 };
-void strifyKBDCmd(LPTSTR dst, TCHAR key, BYTE mod) {
+void strifyKBDCmd(LPTSTR dst, char key, BYTE mod) {
   LPTSTR alt = mod & C_KBD_ALT ? TEXT("Alt+") : NULL;
   LPTSTR shift = mod & C_KBD_SHIFT ? TEXT("Shift+") : NULL;
   LPTSTR ctrl = mod & C_KBD_CTRL ? TEXT("Ctrl+") : NULL;
@@ -81,11 +81,11 @@ void strifyKBDCmd(LPTSTR dst, TCHAR key, BYTE mod) {
   wsprintf(dst, TEXT("%s%s%s%s"), alt, shift, ctrl, ascii);
 }
 
-void setMenuText(HMENU menu, WORD id, BYTE lang, int pos = 0) {
+void setMenuText(HMENU menu, WORD id, WORD lang, int pos = 0) {
   // get text:"すべて選択" by id
   TCHAR fulltext[199];
   int res = LoadString(GetModuleHandle(NULL),
-    lang * 0x1000 | id, fulltext, sizeof(fulltext));
+    lang | id, fulltext, sizeof(fulltext));
   if (!res) {
     // get text:"Select all" default menu text
     MENUITEMINFO mii = {
@@ -96,13 +96,14 @@ void setMenuText(HMENU menu, WORD id, BYTE lang, int pos = 0) {
     mii.cch++;
     GetMenuItemInfo(menu, pos ? pos - 1 : id, !!pos, &mii);
   }
-  // get text:"Ctrl+A" by id
+  // get key stroke: ('A', C_KBD_CTRL) by id
   KBDMap kmap = {id, 0, 0};
-  KBDAssign.getKBDMap(&kmap);
+  Hotkey.getKBDMap(&kmap);
   if (kmap.key) {
-    // join text:"すべて選択\tCtrl+A"
+    // get text:"Ctrl+A" by ('A', C_KBD_CTRL)
     TCHAR keytext[99];
     strifyKBDCmd(keytext, kmap.key, kmap.mod);
+    // join text:"すべて選択\tCtrl+A"
     lstrcat(fulltext, TEXT("\t"));
     lstrcat(fulltext, keytext);
   }
@@ -110,4 +111,12 @@ void setMenuText(HMENU menu, WORD id, BYTE lang, int pos = 0) {
   SetMenuItemInfo(menu, pos ? pos - 1 : id, !!pos, &MENUITEMINFO {
     sizeof(MENUITEMINFO), MIIM_STRING, 0, 0, 0, 0, 0, 0, 0, fulltext, 0, 0
   });
+}
+
+void toLocaleString(LPTSTR fulltext, WORD id, WORD lang) {
+  SIZE_T size = 0x800;
+  int res = LoadString(GetModuleHandle(NULL), lang | id, fulltext, size);
+  if (!res) {
+    LoadString(GetModuleHandle(NULL), id, fulltext, size);
+  }
 }
