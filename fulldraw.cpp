@@ -315,8 +315,8 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     SetWindowPos(chwnd2, HWND_TOP, C_SCWIDTH-300, 0, 300, C_SCHEIGHT, 0);
     SetWindowLongPtr(hwnd, GWL_STYLE, WS_OVERLAPPEDWINDOW);
     SetWindowPos(hwnd, HWND_TOP, 0, 80, C_SCWIDTH/1.5, C_SCHEIGHT/1.5, 0);
-    PostMessage(hwnd, WM_SYSCOMMAND, SC_MAXIMIZE, 0);
-    dwpa.penmax=dwpa.PEN_MAX; dwpa.presmax=dwpa.PRS_MAX; dwpa.updatePenPres();
+    //PostMessage(hwnd, WM_SYSCOMMAND, SC_MAXIMIZE, 0);
+    dwpa.penmax=dwpa.PEN_MAX; dwpa.presmax=0; dwpa.updatePenPres();
     #endif
     // post WM_POINTERXXX on mouse move
     EnableMouseInPointer(TRUE);
@@ -660,13 +660,9 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     return 0;
   }
   case WM_CLOSE: {
-    #ifdef dev
-    if (TRUE) {
-    #else
     toLocaleString(msgtxt, C_STR_EXIT_CONFIRM, langtype);
     if (MessageBox(hwnd, msgtxt,
     C_APPNAME_STR, MB_OKCANCEL | MB_ICONWARNING | MB_DEFBUTTON2) == IDOK) {
-    #endif
       DestroyWindow(hwnd);
     }
     return 0;
