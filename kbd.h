@@ -1,40 +1,40 @@
 #include <windows.h>
 #include "fulldraw.h"
 
-typedef struct tagKBDMap {
+typedef struct tagHOTKEYDATA {
   WORD id;
   char key;
   BYTE mod;
-} KBDMap;
+} HOTKEYDATA;
 
 static class tagHotkey {
 private:
-  KBDMap kmap[99];
-  int index = 0;
+  HOTKEYDATA hotkeylist[99];
+  int entries = 0;
 public:
   void assign(WORD id, char key, BYTE mod) {
-    if (index >= sizeof(kmap) / sizeof(KBDMap)) {
+    if (entries >= sizeof(hotkeylist) / sizeof(HOTKEYDATA)) {
       SetLastError(ERROR_VOLMGR_MAXIMUM_REGISTERED_USERS);
       popError(NULL);
       return;
     }
-    KBDMap *tgt = &kmap[index++];
+    HOTKEYDATA *tgt = &hotkeylist[entries++];
     tgt->id = id;
     tgt->key = key;
     tgt->mod = mod;
   }
-  WORD getIdByKBDCmd(char key, BYTE mod) {
-    for (int i = 0; i < index; i++) {
-      KBDMap *m = &kmap[i];
+  WORD getCmdIdByKeyCombo(char key, BYTE mod) {
+    for (int i = 0; i < entries; i++) {
+      HOTKEYDATA *m = &hotkeylist[i];
       if (m->key == key && m->mod == mod) {
         return m->id;
       }
     }
     return 0;
   }
-  void getKBDMap(KBDMap *srcdst) {
-    for (int i = 0; i < index; i++) {
-      KBDMap *m = &kmap[i];
+  void getHOTKEYDATA(HOTKEYDATA *srcdst) {
+    for (int i = 0; i < entries; i++) {
+      HOTKEYDATA *m = &hotkeylist[i];
       if (m->id == srcdst->id) {
         *srcdst = *m;
         return;
@@ -48,34 +48,35 @@ enum C_KBD_MOD {
   C_KBD_SHIFT = 2,
   C_KBD_ALT = 4
 };
-void strifyKBDCmd(LPTSTR dst, char key, BYTE mod) {
+void strifyKeyCombo(LPTSTR dst, char key, BYTE mod) {
   LPTSTR alt = mod & C_KBD_ALT ? TEXT("Alt+") : NULL;
   LPTSTR shift = mod & C_KBD_SHIFT ? TEXT("Shift+") : NULL;
   LPTSTR ctrl = mod & C_KBD_CTRL ? TEXT("Ctrl+") : NULL;
-  TCHAR ascii[0x10];
+  const SIZE_T n = 0x10;
+  TCHAR ascii[n];
   switch (key) {
-  case VK_TAB: lstrcpy(ascii, TEXT("Tab")); break;
-  case VK_RETURN: lstrcpy(ascii, TEXT("Enter")); break;
-  case VK_SPACE: lstrcpy(ascii, TEXT("Space")); break;
-  case VK_ESCAPE: lstrcpy(ascii, TEXT("Esc")); break;
-  case VK_DELETE: lstrcpy(ascii, TEXT("Del")); break;
-  case VK_INSERT: lstrcpy(ascii, TEXT("Ins")); break;
-  case VK_UP: lstrcpy(ascii, TEXT("↑")); break;
-  case VK_DOWN: lstrcpy(ascii, TEXT("↓")); break;
-  case VK_RIGHT: lstrcpy(ascii, TEXT("→")); break;
-  case VK_LEFT: lstrcpy(ascii, TEXT("←")); break;
-  case VK_F1: lstrcpy(ascii, TEXT("F1")); break;
-  case VK_F2: lstrcpy(ascii, TEXT("F2")); break;
-  case VK_F3: lstrcpy(ascii, TEXT("F3")); break;
-  case VK_F4: lstrcpy(ascii, TEXT("F4")); break;
-  case VK_F5: lstrcpy(ascii, TEXT("F5")); break;
-  case VK_F6: lstrcpy(ascii, TEXT("F6")); break;
-  case VK_F7: lstrcpy(ascii, TEXT("F7")); break;
-  case VK_F8: lstrcpy(ascii, TEXT("F8")); break;
-  case VK_F9: lstrcpy(ascii, TEXT("F9")); break;
-  case VK_F10: lstrcpy(ascii, TEXT("F10")); break;
-  case VK_F11: lstrcpy(ascii, TEXT("F11")); break;
-  case VK_F12: lstrcpy(ascii, TEXT("F12")); break;
+  case VK_TAB: lstrcpyn(ascii, TEXT("Tab"), n); break;
+  case VK_RETURN: lstrcpyn(ascii, TEXT("Enter"), n); break;
+  case VK_SPACE: lstrcpyn(ascii, TEXT("Space"), n); break;
+  case VK_ESCAPE: lstrcpyn(ascii, TEXT("Esc"), n); break;
+  case VK_DELETE: lstrcpyn(ascii, TEXT("Del"), n); break;
+  case VK_INSERT: lstrcpyn(ascii, TEXT("Ins"), n); break;
+  case VK_UP: lstrcpyn(ascii, TEXT("↑"), n); break;
+  case VK_DOWN: lstrcpyn(ascii, TEXT("↓"), n); break;
+  case VK_RIGHT: lstrcpyn(ascii, TEXT("→"), n); break;
+  case VK_LEFT: lstrcpyn(ascii, TEXT("←"), n); break;
+  case VK_F1: lstrcpyn(ascii, TEXT("F1"), n); break;
+  case VK_F2: lstrcpyn(ascii, TEXT("F2"), n); break;
+  case VK_F3: lstrcpyn(ascii, TEXT("F3"), n); break;
+  case VK_F4: lstrcpyn(ascii, TEXT("F4"), n); break;
+  case VK_F5: lstrcpyn(ascii, TEXT("F5"), n); break;
+  case VK_F6: lstrcpyn(ascii, TEXT("F6"), n); break;
+  case VK_F7: lstrcpyn(ascii, TEXT("F7"), n); break;
+  case VK_F8: lstrcpyn(ascii, TEXT("F8"), n); break;
+  case VK_F9: lstrcpyn(ascii, TEXT("F9"), n); break;
+  case VK_F10: lstrcpyn(ascii, TEXT("F10"), n); break;
+  case VK_F11: lstrcpyn(ascii, TEXT("F11"), n); break;
+  case VK_F12: lstrcpyn(ascii, TEXT("F12"), n); break;
   default: wsprintf(ascii, TEXT("%c"), key); break;
   }
   wsprintf(dst, TEXT("%s%s%s%s"), alt, shift, ctrl, ascii);
@@ -97,12 +98,12 @@ void setMenuText(HMENU menu, WORD id, WORD lang, int pos = 0) {
     GetMenuItemInfo(menu, pos ? pos - 1 : id, !!pos, &mii);
   }
   // get key stroke: ('A', C_KBD_CTRL) by id
-  KBDMap kmap = {id, 0, 0};
-  Hotkey.getKBDMap(&kmap);
+  HOTKEYDATA kmap = {id, 0, 0};
+  Hotkey.getHOTKEYDATA(&kmap);
   if (kmap.key) {
     // get text:"Ctrl+A" by ('A', C_KBD_CTRL)
     TCHAR keytext[99];
-    strifyKBDCmd(keytext, kmap.key, kmap.mod);
+    strifyKeyCombo(keytext, kmap.key, kmap.mod);
     // join text:"すべて選択\tCtrl+A"
     lstrcat(fulltext, TEXT("\t"));
     lstrcat(fulltext, keytext);
@@ -113,7 +114,7 @@ void setMenuText(HMENU menu, WORD id, WORD lang, int pos = 0) {
   });
 }
 
-void toLocaleString(LPTSTR fulltext, WORD id, WORD lang) {
+void getLocaleString(LPTSTR fulltext, WORD id, WORD lang) {
   SIZE_T size = 0x800;
   int res = LoadString(GetModuleHandle(NULL), lang | id, fulltext, size);
   if (!res) {

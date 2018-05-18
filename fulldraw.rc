@@ -19,12 +19,14 @@ STRINGTABLE {
   C_STR_JA_SAVEAS "名前を付けて保存(&A)..."
   C_STR_JA_EXIT "終了(&X)"
   //C_STR_JA_LANG "言語(&L)"
-  //C_STR_JA_LANG_DEFAULT "既定(&D)"
+  //C_STR_JA_LANG_DEFAULT "英語(&E)"
   //C_STR_JA_LANG_JA "日本語(&J)"
-  C_STR_CLEAR_CONFIRM "clear? (CAN NOT undo)"
-  C_STR_EXIT_CONFIRM "exit? (data should be deleted)"
+  C_STR_CLEAR_CONFIRM "clear? (can not undo)"
+  C_STR_EXIT_CONFIRM "exit? (unsaved data should be deleted)"
+  C_STR_VERSION_TITLE "about " C_APPNAME
   C_STR_JA_CLEAR_CONFIRM "本当に消去しますか?\n(元に戻せません)"
   C_STR_JA_EXIT_CONFIRM "本当に終了しますか?\n(保存していないデータは失われます)"
+  C_STR_JA_VERSION_TITLE C_APPNAME " のバージョン情報"
 }
 
 C_CTXMENU MENU {
@@ -47,7 +49,7 @@ C_CTXMENU MENU {
       MENUITEM "日本語(&J)", C_CMD_LANG_JA
     }
     MENUITEM SEPARATOR
-    MENUITEM "version...", C_CMD_VERSION
+    MENUITEM "version", C_CMD_VERSION
     MENUITEM SEPARATOR
     MENUITEM "save as...", C_CMD_SAVEAS
     MENUITEM "exit", C_CMD_EXIT

@@ -493,7 +493,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       return 0;
     }
     case C_CMD_CLEAR: {
-      toLocaleString(msgtxt, C_STR_CLEAR_CONFIRM, langtype);
+      getLocaleString(msgtxt, C_STR_CLEAR_CONFIRM, langtype);
       if (MessageBox(hwnd, msgtxt,
       C_APPNAME_STR, MB_OKCANCEL | MB_ICONQUESTION | MB_DEFBUTTON2) == IDOK) {
         dcbA->cls();
@@ -509,13 +509,14 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     case C_CMD_VERSION: {
       TCHAR vertxt[100];
       wsprintf(vertxt, TEXT("%s v%d.%d.%d.%d"), C_APPNAME_STR, C_APPVER);
+      getLocaleString(msgtxt, C_STR_VERSION_TITLE, langtype);
       MSGBOXPARAMS mbpa;
       SecureZeroMemory(&mbpa, sizeof(MSGBOXPARAMS));
       mbpa.cbSize = sizeof(MSGBOXPARAMS);
       mbpa.hwndOwner = hwnd;
       mbpa.hInstance = GetModuleHandle(NULL);
       mbpa.lpszText = vertxt;
-      mbpa.lpszCaption = TEXT("version");
+      mbpa.lpszCaption = msgtxt;
       mbpa.dwStyle = MB_USERICON;
       mbpa.lpszIcon = MAKEINTRESOURCE(C_APPICON);
       MessageBoxIndirect(&mbpa);
@@ -589,11 +590,11 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     return 0;
   }
   case WM_KEYDOWN: {
-    int alt = C_KBD_ALT * !!(GetKeyState(VK_MENU) & 0x8000);
-    int shift = C_KBD_SHIFT * !!(GetKeyState(VK_SHIFT) & 0x8000);
-    int ctrl = C_KBD_CTRL * !!(GetKeyState(VK_CONTROL) & 0x8000);
-    TCHAR key = wp & 0xFF;
-    WORD id = Hotkey.getIdByKBDCmd(key, alt | shift | ctrl);
+    BYTE alt = C_KBD_ALT * !!(GetKeyState(VK_MENU) & 0x8000);
+    BYTE shift = C_KBD_SHIFT * !!(GetKeyState(VK_SHIFT) & 0x8000);
+    BYTE ctrl = C_KBD_CTRL * !!(GetKeyState(VK_CONTROL) & 0x8000);
+    char key = wp & 0xFF;
+    WORD id = Hotkey.getCmdIdByKeyCombo(key, alt | shift | ctrl);
     if (id) {
       PostMessage(hwnd, WM_COMMAND, id, 0);
     }
@@ -660,7 +661,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     return 0;
   }
   case WM_CLOSE: {
-    toLocaleString(msgtxt, C_STR_EXIT_CONFIRM, langtype);
+    getLocaleString(msgtxt, C_STR_EXIT_CONFIRM, langtype);
     if (MessageBox(hwnd, msgtxt,
     C_APPNAME_STR, MB_OKCANCEL | MB_ICONWARNING | MB_DEFBUTTON2) == IDOK) {
       DestroyWindow(hwnd);
