@@ -618,7 +618,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       shift = !!(GetKeyState(VK_SHIFT) & 0x8000) ? C_KBD_SHIFT : 0;
       ctrl = !!(GetKeyState(VK_CONTROL) & 0x8000) ? C_KBD_CTRL : 0;
       TCHAR st[0x80];
-      strifyKBDCmd(st, key, alt|shift|ctrl);
+      strifyKeyCombo(st, key, alt|shift|ctrl);
       touf("str: %s; key: 0x%X(%c);", st, key, key);
     }
     }
