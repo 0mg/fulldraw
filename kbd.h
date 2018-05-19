@@ -1,6 +1,17 @@
 #include <windows.h>
 #include "fulldraw.h"
 
+// MOD >= Alt+Shift+Ctrl+ \0
+// KEY >= PrintScreen \0
+// KEYCOMBO >= MOD KEY \0
+// MENUTEXT >= ITEM \t KEYCOMBO \0
+#define C_MAX_MODTEXT 0x21
+#define C_MAX_KEYTEXT 0x11
+#define C_MAX_KEYCOMBOTEXT (C_MAX_MODTEXT + C_MAX_KEYTEXT)
+#define C_MAX_ITEMTEXT 0xD1
+#define C_MAX_MENUTEXT (C_MAX_ITEMTEXT + C_MAX_KEYCOMBOTEXT)
+#define C_MAX_MSGTEXT 0x401
+
 typedef struct tagHOTKEYDATA {
   WORD id;
   char key;
@@ -52,7 +63,7 @@ void strifyKeyCombo(LPTSTR dst, char key, BYTE mod) {
   LPTSTR alt = mod & C_KBD_ALT ? TEXT("Alt+") : NULL;
   LPTSTR shift = mod & C_KBD_SHIFT ? TEXT("Shift+") : NULL;
   LPTSTR ctrl = mod & C_KBD_CTRL ? TEXT("Ctrl+") : NULL;
-  const SIZE_T n = 0x10;
+  const SIZE_T n = C_MAX_KEYTEXT;
   TCHAR ascii[n];
   switch (key) {
   case VK_TAB: lstrcpyn(ascii, TEXT("Tab"), n); break;
@@ -84,25 +95,22 @@ void strifyKeyCombo(LPTSTR dst, char key, BYTE mod) {
 
 void setMenuText(HMENU menu, WORD id, WORD lang, int pos = 0) {
   // get text:"すべて選択" by id
-  TCHAR fulltext[199];
+  TCHAR fulltext[C_MAX_MENUTEXT];
   int res = LoadString(GetModuleHandle(NULL),
-    lang | id, fulltext, sizeof(fulltext));
+    lang | id, fulltext, C_MAX_ITEMTEXT);
   if (!res) {
     // get text:"Select all" default menu text
-    MENUITEMINFO mii = {
-      sizeof(MENUITEMINFO), MIIM_STRING, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-    };
-    GetMenuItemInfo(menu, pos ? pos - 1 : id, !!pos, &mii);
-    mii.dwTypeData = fulltext;
-    mii.cch++;
-    GetMenuItemInfo(menu, pos ? pos - 1 : id, !!pos, &mii);
+    GetMenuItemInfo(menu, pos ? pos - 1 : id, !!pos, &MENUITEMINFO {
+      sizeof(MENUITEMINFO), MIIM_STRING, 0, 0, 0, 0, 0, 0, 0,
+      fulltext, C_MAX_ITEMTEXT, 0
+    });
   }
-  // get key stroke: ('A', C_KBD_CTRL) by id
+  // get key combo: ('A', C_KBD_CTRL) by id
   HOTKEYDATA kmap = {id, 0, 0};
   Hotkey.getHOTKEYDATA(&kmap);
   if (kmap.key) {
     // get text:"Ctrl+A" by ('A', C_KBD_CTRL)
-    TCHAR keytext[99];
+    TCHAR keytext[C_MAX_KEYCOMBOTEXT];
     strifyKeyCombo(keytext, kmap.key, kmap.mod);
     // join text:"すべて選択\tCtrl+A"
     lstrcat(fulltext, TEXT("\t"));
@@ -115,7 +123,7 @@ void setMenuText(HMENU menu, WORD id, WORD lang, int pos = 0) {
 }
 
 void getLocaleString(LPTSTR fulltext, WORD id, WORD lang) {
-  SIZE_T size = 0x800;
+  SIZE_T size = C_MAX_MSGTEXT;
   int res = LoadString(GetModuleHandle(NULL), lang | id, fulltext, size);
   if (!res) {
     LoadString(GetModuleHandle(NULL), id, fulltext, size);

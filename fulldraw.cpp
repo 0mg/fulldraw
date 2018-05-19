@@ -260,7 +260,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   static BOOL exitmenu = FALSE; // no draw dot on close menu by click outside
   static HMENU popup;
   static WORD langtype = C_LANG_DEFAULT;
-  static TCHAR msgtxt[0x800];
+  static TCHAR msgtxt[C_MAX_MSGTEXT];
   #ifdef dev
   static BOOL msgLogOn = 1;
   const SIZE_T mslen = 50; static LPARAM mss[mslen];
@@ -464,7 +464,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       ClientToScreen(hwnd, &point);
     }
     // ctxmenu popup
-    CheckMenuRadioItem(popup, C_CMD_LANG_FIRST, C_CMD_LANG_JA,
+    CheckMenuRadioItem(popup, C_CMD_LANG_FIRST, C_CMD_LANG_LAST,
       (langtype >> 12) | C_CMD_LANG_FIRST, MF_BYCOMMAND);
     CheckMenuItem(popup, C_CMD_ERASER,
       dwpa.eraser ? MFS_CHECKED : MFS_UNCHECKED);

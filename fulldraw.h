@@ -3,9 +3,9 @@
 #define C_APPVER 0,7,5,1
 #define C_APPNAME TEXT("fulldraw")
 // icon
-#define C_APPICON 0x001
+#define C_APPICON 0x0001
 // menu
-#define C_CTXMENU 0x001
+#define C_CTXMENU 0x0001
 // WM_COMMAND & strings & langs
 #define C_CMD_VERSION 0x001
 #define C_CMD_REFRESH 0x002
