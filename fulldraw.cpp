@@ -4,6 +4,7 @@
 using namespace Gdiplus;
 
 #include "util.h"
+#include "kbd.h"
 #include "fulldraw.h"
 
 // defs that *.rc never call
@@ -218,6 +219,25 @@ int drawRender(HWND hwnd, DCBuffer *dcb, Bitmap *bmbg, DrawParams &dwpa, C_DR_TY
   return 0;
 }
 
+void modifyMenu(HMENU menu, WORD lang) {
+  setMenuText(menu, C_CMD_EXIT, lang);
+  setMenuText(menu, C_CMD_CLEAR, lang);
+  setMenuText(menu, C_CMD_REFRESH, lang);
+  setMenuText(menu, C_CMD_MINIMIZE, lang);
+  setMenuText(menu, C_CMD_ERASER, lang);
+  setMenuText(menu, C_CMD_FLIP, lang);
+  setMenuText(menu, C_CMD_PEN_DE, lang);
+  setMenuText(menu, C_CMD_PEN_IN, lang);
+  setMenuText(menu, C_CMD_PRS_DE, lang);
+  setMenuText(menu, C_CMD_PRS_IN, lang);
+  setMenuText(menu, C_CMD_SAVEAS, lang);
+  setMenuText(menu, C_CMD_VERSION, lang);
+  setMenuText(menu, C_STR_PEN, lang, 2);
+  setMenuText(menu, C_STR_LANG, lang, 9);
+  setMenuText(menu, C_CMD_LANG_DEFAULT, lang);
+  setMenuText(menu, C_CMD_LANG_JA, lang);
+}
+
 LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   static DrawParams dwpa;
   static DCBuffer dcb1, dcb2, dcbg, *dcbA, *dcbB;
@@ -225,6 +245,8 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   static BOOL nodraw = FALSE; // no draw dot on activated window by click
   static BOOL exitmenu = FALSE; // no draw dot on close menu by click outside
   static HMENU popup;
+  static WORD langtype = C_LANG_DEFAULT;
+  static TCHAR msgtxt[C_MAX_MSGTEXT];
   switch (msg) {
   case WM_CREATE: {
     // x, y
@@ -238,9 +260,26 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     bmbg = new Bitmap(dcbg.width, dcbg.height);
     // cursor
     PenUI.setCursor(hwnd, dwpa);
+    // keyboard shortcut
+    Hotkey.assign(C_CMD_EXIT, VK_ESCAPE, 0);
+    Hotkey.assign(C_CMD_CLEAR, VK_DELETE, 0);
+    Hotkey.assign(C_CMD_REFRESH, VK_F5, 0);
+    Hotkey.assign(C_CMD_MINIMIZE, 'M', C_KBD_CTRL);
+    Hotkey.assign(C_CMD_ERASER, 'E', 0);
+    Hotkey.assign(C_CMD_FLIP, 'H', 0);
+    Hotkey.assign(C_CMD_PEN_DE, VK_DOWN, 0);
+    Hotkey.assign(C_CMD_PEN_IN, VK_UP, 0);
+    Hotkey.assign(C_CMD_PRS_DE, VK_LEFT, 0);
+    Hotkey.assign(C_CMD_PRS_IN, VK_RIGHT, 0);
+    Hotkey.assign(C_CMD_SAVEAS, 'S', C_KBD_CTRL | C_KBD_SHIFT);
     // menu
     HMENU menu = LoadMenu(GetModuleHandle(NULL), MAKEINTRESOURCE(C_CTXMENU));
     popup = GetSubMenu(menu, 0);
+    switch (LANGIDFROMLCID(GetUserDefaultLCID())) {
+    case 0x0411: langtype = C_LANG_JA; break;
+    default: langtype = C_LANG_DEFAULT; break;
+    }
+    modifyMenu(popup, langtype);
     // post WM_POINTERXXX on mouse move
     EnableMouseInPointer(TRUE);
     return 0;
@@ -381,6 +420,8 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       ClientToScreen(hwnd, &point);
     }
     // ctxmenu popup
+    CheckMenuRadioItem(popup, C_CMD_LANG_FIRST, C_CMD_LANG_LAST,
+      (langtype >> 12) | C_CMD_LANG_FIRST, MF_BYCOMMAND);
     CheckMenuItem(popup, C_CMD_ERASER,
       dwpa.eraser ? MFS_CHECKED : MFS_UNCHECKED);
     TrackPopupMenuEx(popup, 0, point.x, point.y, hwnd, NULL);
@@ -408,7 +449,8 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       return 0;
     }
     case C_CMD_CLEAR: {
-      if (MessageBox(hwnd, TEXT("clear?"),
+      getLocaleString(msgtxt, C_STR_CLEAR_CONFIRM, langtype);
+      if (MessageBox(hwnd, msgtxt,
       C_APPNAME_STR, MB_OKCANCEL | MB_ICONQUESTION | MB_DEFBUTTON2) == IDOK) {
         dcbA->cls();
         InvalidateRect(hwnd, NULL, FALSE);
@@ -423,13 +465,14 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     case C_CMD_VERSION: {
       TCHAR vertxt[100];
       wsprintf(vertxt, TEXT("%s v%d.%d.%d.%d"), C_APPNAME_STR, C_APPVER);
+      getLocaleString(msgtxt, C_STR_VERSION_TITLE, langtype);
       MSGBOXPARAMS mbpa;
       SecureZeroMemory(&mbpa, sizeof(MSGBOXPARAMS));
       mbpa.cbSize = sizeof(MSGBOXPARAMS);
       mbpa.hwndOwner = hwnd;
       mbpa.hInstance = GetModuleHandle(NULL);
       mbpa.lpszText = vertxt;
-      mbpa.lpszCaption = TEXT("version");
+      mbpa.lpszCaption = msgtxt;
       mbpa.dwStyle = MB_USERICON;
       mbpa.lpszIcon = MAKEINTRESOURCE(C_APPICON);
       MessageBoxIndirect(&mbpa);
@@ -455,6 +498,20 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
           if (popError(hwnd, MB_RETRYCANCEL) != IDRETRY) break;
         }
       }
+      return 0;
+    }
+    case C_CMD_LANG_DEFAULT: {
+      langtype = C_LANG_DEFAULT;
+      HMENU menu = LoadMenu(GetModuleHandle(NULL), MAKEINTRESOURCE(C_CTXMENU));
+      popup = GetSubMenu(menu, 0);
+      modifyMenu(popup, langtype);
+      return 0;
+    }
+    case C_CMD_LANG_JA: {
+      langtype = C_LANG_JA;
+      HMENU menu = LoadMenu(GetModuleHandle(NULL), MAKEINTRESOURCE(C_CTXMENU));
+      popup = GetSubMenu(menu, 0);
+      modifyMenu(popup, langtype);
       return 0;
     }
     case C_CMD_ERASER: {
@@ -489,46 +546,13 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     return 0;
   }
   case WM_KEYDOWN: {
-    DWORD alt = ('!' * 0x1000000) * !!(GetKeyState(VK_MENU) & 0x8000);
-    DWORD shift = ('+' * 0x10000) * !!(GetKeyState(VK_SHIFT) & 0x8000);
-    DWORD ctrl = ('^' * 0x100) * !!(GetKeyState(VK_CONTROL) & 0x8000);
-    // '+^K': Shift+Ctrl+K, '^K': Ctrl+K, '+\0K': Shift+K
-    switch (alt | shift | ctrl | wp) {
-    case VK_ESCAPE: PostMessage(hwnd, WM_COMMAND, C_CMD_EXIT, 0); return 0;
-    case VK_DELETE: PostMessage(hwnd, WM_COMMAND, C_CMD_CLEAR, 0); return 0;
-    case VK_F5: PostMessage(hwnd, WM_COMMAND, C_CMD_REFRESH, 0); return 0;
-    case '^M': {
-      PostMessage(hwnd, WM_COMMAND, C_CMD_MINIMIZE, 0);
-      return 0;
-    }
-    case 'E': {
-      SendMessage(hwnd, WM_COMMAND, C_CMD_ERASER, 0);
-      return 0;
-    }
-    case 'H': {
-      SendMessage(hwnd, WM_COMMAND, C_CMD_FLIP, 0);
-      return 0;
-    }
-    case VK_DOWN: {
-      SendMessage(hwnd, WM_COMMAND, C_CMD_PEN_DE, 0);
-      return 0;
-    }
-    case VK_UP: {
-      SendMessage(hwnd, WM_COMMAND, C_CMD_PEN_IN, 0);
-      return 0;
-    }
-    case VK_LEFT: {
-      SendMessage(hwnd, WM_COMMAND, C_CMD_PRS_DE, 0);
-      return 0;
-    }
-    case VK_RIGHT: {
-      SendMessage(hwnd, WM_COMMAND, C_CMD_PRS_IN, 0);
-      return 0;
-    }
-    case '+^S': {
-      SendMessage(hwnd, WM_COMMAND, C_CMD_SAVEAS, 0);
-      return 0;
-    }
+    BYTE alt = C_KBD_ALT * !!(GetKeyState(VK_MENU) & 0x8000);
+    BYTE shift = C_KBD_SHIFT * !!(GetKeyState(VK_SHIFT) & 0x8000);
+    BYTE ctrl = C_KBD_CTRL * !!(GetKeyState(VK_CONTROL) & 0x8000);
+    char key = wp & 0xFF;
+    WORD id = Hotkey.getCmdIdByKeyCombo(key, alt | shift | ctrl);
+    if (id) {
+      PostMessage(hwnd, WM_COMMAND, id, 0);
     }
     return 0;
   }
@@ -561,7 +585,8 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     return 0;
   }
   case WM_CLOSE: {
-    if (MessageBox(hwnd, TEXT("exit?"),
+    getLocaleString(msgtxt, C_STR_EXIT_CONFIRM, langtype);
+    if (MessageBox(hwnd, msgtxt,
     C_APPNAME_STR, MB_OKCANCEL | MB_ICONWARNING | MB_DEFBUTTON2) == IDOK) {
       DestroyWindow(hwnd);
     }
