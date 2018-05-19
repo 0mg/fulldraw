@@ -560,8 +560,8 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       return 0;
     }
     #ifdef dev
-    case C_CMD_LANG_LANG2: {
-      langtype = C_LANG_LANG2;
+    case C_CMD_LANG_KANA: {
+      langtype = C_LANG_KANA;
       HMENU menu = LoadMenu(GetModuleHandle(NULL), MAKEINTRESOURCE(C_CTXMENU));
       popup = GetSubMenu(menu, 0);
       modifyMenu(popup, langtype);

@@ -34,4 +34,6 @@
 #define C_LANG_DEFAULT 0x0000
 #define C_LANG_JA 0x1000
 #ifdef dev
+#define C_CMD_LANG_KANA 0xFF2
+#define C_LANG_KANA 0x2000
 #endif
