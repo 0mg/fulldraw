@@ -27,6 +27,10 @@ STRINGTABLE {
   C_STR_JA_CLEAR_CONFIRM "本当に消去しますか?\n(元に戻せません)"
   C_STR_JA_EXIT_CONFIRM "本当に終了しますか?\n(保存していないデータは失われます)"
   C_STR_JA_VERSION_TITLE C_APPNAME " のバージョン情報"
+  #ifdef dev
+  C_STR_LANG2_PEN "えんぴつ"
+  C_STR_LANG2_CLEAR "けす"
+  #endif
 }
 
 C_CTXMENU MENU {
@@ -47,6 +51,9 @@ C_CTXMENU MENU {
     POPUP "language" {
       MENUITEM "English", C_CMD_LANG_DEFAULT
       MENUITEM "日本語(&J)", C_CMD_LANG_JA
+      #ifdef dev
+      MENUITEM "ひらがな(&H)", C_CMD_LANG_LANG2
+      #endif
     }
     MENUITEM SEPARATOR
     MENUITEM "version", C_CMD_VERSION

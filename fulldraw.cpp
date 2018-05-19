@@ -1,4 +1,3 @@
-#define dev
 #include <windows.h>
 #include <windowsx.h>
 #include <gdiplus.h>
@@ -558,6 +557,15 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       modifyMenu(popup, langtype);
       return 0;
     }
+    #ifdef dev
+    case C_CMD_LANG_LANG2: {
+      langtype = C_LANG_LANG2;
+      HMENU menu = LoadMenu(GetModuleHandle(NULL), MAKEINTRESOURCE(C_CTXMENU));
+      popup = GetSubMenu(menu, 0);
+      modifyMenu(popup, langtype);
+      return 0;
+    }
+    #endif
     case C_CMD_ERASER: {
       dwpa.eraser = !dwpa.eraser;
       return 0;
