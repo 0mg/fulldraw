@@ -43,14 +43,15 @@ public:
     }
     return 0;
   }
-  void getHOTKEYDATA(HOTKEYDATA *srcdst) {
+  BOOL getHOTKEYDATA(HOTKEYDATA *srcdst) {
     for (int i = 0; i < entries; i++) {
       HOTKEYDATA *m = &hotkeylist[i];
       if (m->id == srcdst->id) {
         *srcdst = *m;
-        return;
+        return TRUE;
       }
     }
+    return FALSE;
   }
 } Hotkey;
 
@@ -107,8 +108,7 @@ void setMenuText(HMENU menu, WORD id, WORD lang, int pos = 0) {
   }
   // get key combo: ('A', C_KBD_CTRL) by id
   HOTKEYDATA kmap = {id, 0, 0};
-  Hotkey.getHOTKEYDATA(&kmap);
-  if (kmap.key) {
+  if (Hotkey.getHOTKEYDATA(&kmap)) {
     // get text:"Ctrl+A" by ('A', C_KBD_CTRL)
     TCHAR keytext[C_MAX_KEYCOMBOTEXT];
     strifyKeyCombo(keytext, kmap.key, kmap.mod);
