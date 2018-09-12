@@ -329,6 +329,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       dwp2.eraser = !!(penInfo.penFlags & PEN_FLAG_ERASER);
       break;
     }
+    case PT_TOUCH: // same to PT_MOUSE
     case PT_TOUCHPAD: // same to PT_MOUSE
     case PT_MOUSE: {
       if (IS_POINTER_FIRSTBUTTON_WPARAM(wp)) {
@@ -371,6 +372,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       }
       break;
     }
+    case PT_TOUCH: // same to PT_MOUSE
     case PT_TOUCHPAD: // same to PT_MOUSE
     case PT_MOUSE: {
       if (dwpa.pressure) {
