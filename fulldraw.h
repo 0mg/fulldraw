@@ -1,6 +1,6 @@
 #include <windows.h>
 // common defs (used by *.cpp and *.rc)
-#define C_APPVER 0,7,5,1
+#define C_APPVER 0,7,6,1
 #define C_APPNAME TEXT("fulldraw")
 // icon
 #define C_APPICON 0x0001
