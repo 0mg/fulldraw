@@ -466,7 +466,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     }
     case C_CMD_VERSION: {
       TCHAR vertxt[100];
-      wsprintf(vertxt, TEXT("%s v%d.%d.%d.%d"), C_APPNAME_STR, C_APPVER);
+      wsprintf(vertxt, TEXT("%s v%d.%d.%d"), C_APPNAME_STR, C_APPVER);
       getLocaleString(msgtxt, C_STR_VERSION_TITLE, langtype);
       MSGBOXPARAMS mbpa;
       SecureZeroMemory(&mbpa, sizeof(MSGBOXPARAMS));
