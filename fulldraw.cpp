@@ -604,6 +604,9 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
 }
 
 int WINAPI WinMain(HINSTANCE hi, HINSTANCE hp, LPSTR cl, int cs) {
+  // DPI Scale
+  SetProcessDPIAware();
+
   // GDI+
   ULONG_PTR token;
   GdiplusStartupInput input;
