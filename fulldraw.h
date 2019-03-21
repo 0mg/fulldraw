@@ -20,6 +20,7 @@
 #define C_CMD_PEN_DE 0x00B
 #define C_CMD_PRS_IN 0x00C
 #define C_CMD_PRS_DE 0x00D
+#define C_CMD_SMOOTH 0x00E
 #define C_STR_PEN 0x701
 #define C_STR_LANG 0x702
 #define C_STR_CLEAR_CONFIRM 0x703

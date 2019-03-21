@@ -15,6 +15,7 @@ STRINGTABLE {
   C_LANG_JA | C_CMD_PEN_DE "小さく(&D)"
   C_LANG_JA | C_CMD_PRS_IN "硬く(&R)"
   C_LANG_JA | C_CMD_PRS_DE "柔らかく(&L)"
+  C_LANG_JA | C_CMD_SMOOTH "なめらか(&S)"
   C_LANG_JA | C_CMD_FLIP "裏返す(&F)"
   C_LANG_JA | C_CMD_CLEAR "消去(&C)"
   C_LANG_JA | C_CMD_REFRESH "最新の情報に更新(&E)"
@@ -43,6 +44,7 @@ C_CTXMENU MENU {
       MENUITEM "smaller", C_CMD_PEN_DE
       MENUITEM "harder", C_CMD_PRS_IN
       MENUITEM "softer", C_CMD_PRS_DE
+      MENUITEM "smoothing", C_CMD_SMOOTH
     }
     MENUITEM SEPARATOR
     MENUITEM "flip", C_CMD_FLIP

@@ -88,6 +88,7 @@ private:
 public:
   int x, y, oldx, oldy;
   int pressure, oldpressure;
+  BOOL smooth;
   static BOOL eraser;
   static int penmax, presmax;
   static int PEN_MIN, PEN_MAX, PEN_INDE;
@@ -95,6 +96,7 @@ public:
   void init() {
     x = y = oldx = oldy = 0;
     pressure = oldpressure = 0;
+    smooth = TRUE;
     if (!staticsReadied) {
       initStatics();
       staticsReadied = TRUE;
@@ -210,7 +212,7 @@ int drawRender(HWND hwnd, DCBuffer *dcb, Bitmap *bmbg, DrawParams &dwpa, C_DR_TY
     Graphics screen(hwnd);
     Graphics buffer(dcb->dc);
     Graphics *gpctx = i ? &buffer : &screen;
-    gpctx->SetSmoothingMode(SmoothingModeAntiAlias);
+    if (dwpa.smooth) gpctx->SetSmoothingMode(SmoothingModeAntiAlias);
     if (dwpa.eraser) {
       if (gpctx == &screen) {
         brush = &brushBGImg;
@@ -243,6 +245,7 @@ void modifyMenu(HMENU menu, WORD lang) {
   setMenuText(menu, C_CMD_PEN_IN, lang);
   setMenuText(menu, C_CMD_PRS_DE, lang);
   setMenuText(menu, C_CMD_PRS_IN, lang);
+  setMenuText(menu, C_CMD_SMOOTH, lang);
   setMenuText(menu, C_CMD_SAVEAS, lang);
   setMenuText(menu, C_CMD_VERSION, lang);
   setMenuText(menu, C_STR_PEN, lang, 2);
@@ -299,6 +302,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     Hotkey.assign(C_CMD_PEN_IN, VK_UP, 0);
     Hotkey.assign(C_CMD_PRS_DE, VK_LEFT, 0);
     Hotkey.assign(C_CMD_PRS_IN, VK_RIGHT, 0);
+    Hotkey.assign(C_CMD_SMOOTH, 'S', 0);
     Hotkey.assign(C_CMD_SAVEAS, 'S', C_KBD_CTRL | C_KBD_SHIFT);
     // menu
     HMENU menu = LoadMenu(GetModuleHandle(NULL), MAKEINTRESOURCE(C_CTXMENU));
@@ -471,6 +475,8 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       (langtype >> 12) | C_CMD_LANG_FIRST, MF_BYCOMMAND);
     CheckMenuItem(popup, C_CMD_ERASER,
       dwpa.eraser ? MFS_CHECKED : MFS_UNCHECKED);
+    CheckMenuItem(popup, C_CMD_SMOOTH,
+      dwpa.smooth ? MFS_CHECKED : MFS_UNCHECKED);
     TrackPopupMenuEx(popup, 0, point.x, point.y, hwnd, NULL);
     return 0;
   }
@@ -572,6 +578,10 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     #endif
     case C_CMD_ERASER: {
       dwpa.eraser = !dwpa.eraser;
+      return 0;
+    }
+    case C_CMD_SMOOTH: {
+      dwpa.smooth = !dwpa.smooth;
       return 0;
     }
     case C_CMD_PEN_DE: {
