@@ -286,7 +286,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   static WORD langtype = C_LANG_DEFAULT;
   static TCHAR msgtxt[C_MAX_MSGTEXT];
   #ifdef dev
-  static BOOL msgLogOn = 1;
+  static BOOL msgLogOn = 0;
   const SIZE_T mslen = 50; static LPARAM mss[mslen];
   const SIZE_T txlen = mslen * 100; TCHAR txs[txlen];
   SecureZeroMemory(txs, sizeof(TCHAR) * txlen);
@@ -341,7 +341,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     SetWindowLongPtr(hwnd, GWL_STYLE, WS_OVERLAPPEDWINDOW);
     SetWindowPos(hwnd, HWND_TOP, 0, 80, C_SCWIDTH/1.5, C_SCHEIGHT/1.5, 0);
     //PostMessage(hwnd, WM_SYSCOMMAND, SC_MAXIMIZE, 0);
-    //dwpa.penmax=dwpa.PEN_MAX; dwpa.presmax=0; dwpa.updatePenPres();
+    dwpa.penmax=dwpa.PEN_MAX; dwpa.presmax=0; dwpa.updatePenPres();
     #endif
     // post WM_POINTERXXX on mouse move
     EnableMouseInPointer(TRUE);
