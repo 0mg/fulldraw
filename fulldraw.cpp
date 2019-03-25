@@ -409,13 +409,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     }
     if (nodraw) return 0;
     if (dwpa.pressure) {
-      // todo: everytime use drawRenderAsync()
-      // but now eraser is poor...
-      if (!dwpa.eraser) {
-        drawRenderAsync(hwnd, dcbA, bmbg, dwpa, C_DR_LINE);
-      } else {
-        drawRender(hwnd, dcbA, bmbg, dwpa, C_DR_LINE);
-      }
+      drawRenderAsync(hwnd, dcbA, bmbg, dwpa, C_DR_LINE);
     }
     return 0;
   }
