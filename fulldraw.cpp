@@ -176,7 +176,7 @@ public:
 
 // C_CMD_DRAW v2.0
 enum C_DR_TYPE {C_DR_LINE, C_DR_DOT};
-int drawRender(HWND hwnd, DCBuffer *dcb, Bitmap *bmbg, DrawParams dwpa, C_DR_TYPE type) {
+int drawRender(HWND hwnd, DCBuffer *dcb, Bitmap *bmbg, DrawParams &dwpa, C_DR_TYPE type) {
   // draw line
   int pressure = dwpa.pressure, oldpressure = dwpa.oldpressure;
   int penmax = dwpa.penmax;
@@ -216,28 +216,6 @@ int drawRender(HWND hwnd, DCBuffer *dcb, Bitmap *bmbg, DrawParams dwpa, C_DR_TYP
       gpctx->FillEllipse(brush, x2 - R, y2 - R, pensize, pensize);
     }
   }
-  return 0;
-}
-struct drawRenderThreadArgs {
-  HWND hwnd;
-  DCBuffer *dcb;
-  Bitmap *bmbg;
-  DrawParams dwpa;
-  C_DR_TYPE type;
-};
-DWORD WINAPI drawRenderThread(LPVOID argsRAW) {
-  drawRenderThreadArgs *args = (drawRenderThreadArgs *)argsRAW;
-  drawRender(args->hwnd, args->dcb, args->bmbg, args->dwpa, args->type);
-  return 0;
-}
-int drawRenderAsync(HWND hwnd, DCBuffer *dcb, Bitmap *bmbg, DrawParams &dwpa, C_DR_TYPE type) {
-  drawRenderThreadArgs args;
-  args.hwnd = hwnd;
-  args.dcb = dcb;
-  args.bmbg = bmbg;
-  args.dwpa = dwpa;
-  args.type = type;
-  CloseHandle(CreateThread(NULL, 0, drawRenderThread, &args, 0, NULL));
   return 0;
 }
 
@@ -409,7 +387,7 @@ LRESULT CALLBACK mainWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     }
     if (nodraw) return 0;
     if (dwpa.pressure) {
-      drawRenderAsync(hwnd, dcbA, bmbg, dwpa, C_DR_LINE);
+      drawRender(hwnd, dcbA, bmbg, dwpa, C_DR_LINE);
     }
     return 0;
   }
