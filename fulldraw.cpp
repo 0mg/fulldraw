@@ -202,7 +202,7 @@ int drawRender(HWND hwnd, DCBuffer *dcb, Bitmap *bmbg, DrawParams &dwpa, C_DR_TY
   REAL pensize = pressure * (REAL)penmax / presmax;
   REAL oldpensize = oldpressure * (REAL)penmax / presmax;
   Pen pen2(C_FGCOLOR, pensize); // Pen draws 1px line if pensize=0
-  TextureBrush brushBGImg(bmbg);
+  TextureBrush brushBGImg(dwpa.eraser ? bmbg : &Bitmap(0, 0));
   SolidBrush brushFG(C_FGCOLOR);
   SolidBrush brushBG(dcb->bgcolor);
   Brush *brush = &brushFG;
